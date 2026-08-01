@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seus produtos — ObraIA</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230057a8'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='Arial,sans-serif' font-weight='bold' fill='white'%3EM%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --navy:#002B40; --blue:#1792C0; --sky:#5ba3d9;
+  --bg:#f0f4f8; --card:#ffffff; --border:#dce3ea;
+  --text:#2c3e50; --muted:#7f8c8d; --shadow: 0 2px 12px rgba(26,60,94,.10);
+}
+*{box-sizing:border-box}
+body{ margin:0; min-height:100vh; font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); }
+header{
+  background:linear-gradient(135deg, var(--navy) 0%, #1792C0 100%);
+  color:#fff; padding:0 24px; height:60px; display:flex; align-items:center; gap:16px;
+  box-shadow:0 2px 8px rgba(0,0,0,.25);
+}
+header .logo{ font-size:20px; font-weight:700; letter-spacing:-.5px; }
+header .logo span{ color:#4db8e8; }
+header .right{ margin-left:auto; display:flex; align-items:center; gap:14px; font-size:13px; color:rgba(255,255,255,.85); }
+header .right button{
+  background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25); color:#fff;
+  padding:7px 14px; border-radius:7px; font-size:12.5px; cursor:pointer; font-family:inherit;
+}
+header .right button:hover{ background:rgba(255,255,255,.2); }
+main{ max-width:940px; margin:0 auto; padding:48px 24px; }
+.welcome{ margin-bottom:34px; }
+.welcome h1{ font-size:24px; margin:0 0 6px; color:var(--navy); }
+.welcome p{ margin:0; color:var(--muted); font-size:14.5px; }
+.grid{ display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+@media (max-width:760px){ .grid{ grid-template-columns:1fr; } }
+.card{
+  background:var(--card); border:1px solid var(--border); border-radius:14px;
+  box-shadow:var(--shadow); padding:28px; display:flex; flex-direction:column; gap:12px;
+}
+.card .icon{ font-size:30px; }
+.card h2{ font-size:18px; margin:0; color:var(--navy); }
+.card p{ font-size:13.5px; color:var(--muted); margin:0; line-height:1.5; flex:1; }
+.card .btn{
+  align-self:flex-start; padding:10px 20px; border:0; border-radius:8px; font-size:14px;
+  font-weight:700; cursor:pointer; text-decoration:none; display:inline-block; font-family:inherit;
+}
+.card.start .btn{ background:var(--blue); color:#fff; }
+.card.use .btn{ background:var(--navy); color:#fff; }
+.card .badge{
+  display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px;
+  background:#eaf6fb; color:var(--blue); width:fit-content;
+}
+.products-note{ margin-top:40px; font-size:12.5px; color:var(--muted); text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Obra<span>IA</span></div>
+  <div class="right">
+    <span id="userEmail"></span>
+    <button id="logoutBtn">Sair</button>
+  </div>
+</header>
+
+<main>
+  <div class="welcome">
+    <h1>Seus produtos</h1>
+    <p>Escolha por onde começar.</p>
+  </div>
+
+  <div class="grid">
+    <div class="card start">
+      <div class="icon">🚀</div>
+      <span class="badge">recomendado antes de começar</span>
+      <h2>Comece por aqui</h2>
+      <p>Um vídeo curto mostrando como usar o ObraIA do jeito certo, antes de rodar seu primeiro levantamento.</p>
+      <a class="btn" href="comece-por-aqui.html">Assistir</a>
+    </div>
+
+    <div class="card use">
+      <div class="icon">🧱</div>
+      <span class="badge">ObraIA</span>
+      <h2>Usar o ObraIA</h2>
+      <p>Orçamento de obras com IA — envie sua planta, gere o levantamento e o orçamento SINAPI completo.</p>
+      <a class="btn" href="index.html">Abrir o sistema</a>
+    </div>
+  </div>
+
+  <div class="products-note">Mais produtos chegando em breve.</div>
+</main>
+
+<script>
+const SUPA_URL = "https://xjzbqikappmaijfkxmms.supabase.co";
+const SUPA_KEY = "sb_publishable_8h0mEd8mtbb5RY9JmhzoDw_W2RKJIYs";
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if(!session){
+    window.location.href = "login.html";
+    return;
+  }
+  document.getElementById("userEmail").textContent = session.user.email;
+})();
+
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  await sb.auth.signOut();
+  window.location.href = "login.html";
+});
+</script>
+</body>
+</html>
