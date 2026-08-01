@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diagnóstico NAVE — Em que etapa da travessia da IA você está? | Mar Aberto Engenharia</title>
+<meta name="description" content="Diagnóstico gratuito para engenheiros: em 3 minutos descubra em qual etapa da travessia da IA você está — Navegar, Automatizar, Validar ou Escalar — e receba um plano prático para avançar.">
+<link rel="canonical" href="https://marabertoeng.com.br/diagnostico-nave.html">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Diagnóstico NAVE — Em que etapa da travessia da IA você está?">
+<meta property="og:description" content="8 perguntas, 3 minutos. Descubra o que está travando o seu tempo e receba um plano prático para usar IA em orçamento, obra e contrato.">
+<meta property="og:url" content="https://marabertoeng.com.br/diagnostico-nave.html">
+<meta property="og:image" content="https://marabertoeng.com.br/logo-azul.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  :root{
+    --deep:#050d1a; --navy:#0a1830; --card:#0f2138; --line:#1d3a5c;
+    --cyan:#37d5c3; --ice:#bfe6ff; --amber:#f5b93f; --txt:#eaf3fc; --muted:#8fa9c6;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 800px at 50% -10%, #10294a 0%, var(--deep) 60%);
+    color:var(--txt);font-family:'Segoe UI',system-ui,sans-serif;line-height:1.5;
+    display:flex;flex-direction:column;align-items:center;min-height:100vh}
+  .stage{width:100%;max-width:640px;padding:28px 20px 60px;flex:1;display:flex;flex-direction:column}
+  .brand{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:26px}
+  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan)}
+  .brand span{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);font-weight:700}
+  .screen{display:none;animation:rise .45s ease}
+  .screen.on{display:block}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  /* rota N-A-V-E */
+  .route{display:flex;align-items:center;gap:0;margin:0 auto 30px;max-width:420px}
+  .port{display:flex;flex-direction:column;align-items:center;gap:6px;flex:0 0 auto}
+  .port .b{width:34px;height:34px;border-radius:50%;border:2px solid var(--line);display:flex;
+    align-items:center;justify-content:center;font-weight:800;font-size:14px;color:var(--muted);
+    background:var(--navy);transition:.4s}
+  .port small{font-size:9px;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
+  .port.lit .b{border-color:var(--cyan);color:#05242b;background:var(--cyan);box-shadow:0 0 16px rgba(55,213,195,.5)}
+  .lane{flex:1;height:2px;background:var(--line);position:relative;overflow:hidden}
+  .lane i{position:absolute;inset:0;background:var(--cyan);transform:scaleX(0);transform-origin:left;transition:.6s}
+  .lane.lit i{transform:scaleX(1)}
+
+  h1{font-size:30px;font-weight:800;line-height:1.2;text-align:center;margin-bottom:14px}
+  h1 em{color:var(--cyan);font-style:normal}
+  .lead{color:var(--muted);text-align:center;font-size:15.5px;max-width:520px;margin:0 auto 26px}
+  .btn{display:block;width:100%;background:linear-gradient(135deg,var(--cyan),#1ea8b5);color:#03212a;
+    border:none;border-radius:14px;padding:17px;font-size:16.5px;font-weight:800;cursor:pointer;
+    font-family:inherit;transition:.15s;box-shadow:0 8px 30px rgba(55,213,195,.25)}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 12px 36px rgba(55,213,195,.35)}
+  .btn.ghost{background:none;color:var(--muted);box-shadow:none;font-weight:600;font-size:13.5px;padding:10px}
+  .meta{display:flex;justify-content:center;gap:22px;margin-top:18px;color:var(--muted);font-size:12.5px}
+  .meta b{color:var(--ice)}
+
+  .qnum{color:var(--cyan);font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;text-align:center}
+  .qtext{font-size:21px;font-weight:800;text-align:center;margin-bottom:24px;line-height:1.3}
+  .opt{display:block;width:100%;text-align:left;background:var(--card);border:1.5px solid var(--line);
+    border-radius:14px;padding:15px 17px;margin-bottom:11px;cursor:pointer;color:var(--txt);
+    font-size:14.5px;font-family:inherit;transition:.15s;line-height:1.4}
+  .opt:hover{border-color:var(--cyan);background:#12294a;transform:translateX(4px)}
+  .opt b{color:var(--cyan);margin-right:8px}
+
+  .form-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px}
+  .form-card h2{font-size:21px;font-weight:800;margin-bottom:6px;text-align:center}
+  .form-card p{color:var(--muted);font-size:13.5px;text-align:center;margin-bottom:20px}
+  label{display:block;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+  input{width:100%;background:var(--navy);border:1.5px solid var(--line);border-radius:11px;padding:13px 15px;
+    color:var(--txt);font-size:15px;font-family:inherit;outline:none;transition:.15s}
+  input:focus{border-color:var(--cyan)}
+  .priv{font-size:11.5px;color:var(--muted);text-align:center;margin-top:12px}
+
+  .res-badge{width:92px;height:92px;border-radius:50%;margin:0 auto 16px;display:flex;align-items:center;
+    justify-content:center;font-size:40px;font-weight:900;color:#03212a;
+    background:linear-gradient(135deg,var(--cyan),#1ea8b5);box-shadow:0 0 40px rgba(55,213,195,.45)}
+  .res-eyebrow{text-align:center;color:var(--muted);font-size:12px;letter-spacing:2.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px}
+  .res-title{text-align:center;font-size:27px;font-weight:800;margin-bottom:14px}
+  .res-title span{color:var(--cyan)}
+  .res-desc{color:var(--muted);font-size:15px;text-align:center;max-width:520px;margin:0 auto 22px}
+  .res-box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:14px}
+  .res-box h3{font-size:14px;color:var(--cyan);text-transform:uppercase;letter-spacing:1.5px;font-weight:800;margin-bottom:10px}
+  .res-box ul{padding-left:18px;display:flex;flex-direction:column;gap:8px}
+  .res-box li{font-size:14px;color:var(--muted)}
+  .res-box li strong{color:var(--txt)}
+  .waves{position:fixed;bottom:0;left:0;right:0;height:70px;pointer-events:none;opacity:.5;z-index:-1}
+  .waves svg{width:200%;height:100%;animation:drift 14s linear infinite}
+  @keyframes drift{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="brand"><div class="dot"></div><span>Diagnóstico NAVE · Mar Aberto Engenharia</span></div>
+
+  <div class="route" id="route">
+    <div class="port" data-p="0"><div class="b">N</div><small>Navegar</small></div>
+    <div class="lane" data-l="0"><i></i></div>
+    <div class="port" data-p="1"><div class="b">A</div><small>Automatizar</small></div>
+    <div class="lane" data-l="1"><i></i></div>
+    <div class="port" data-p="2"><div class="b">V</div><small>Validar</small></div>
+    <div class="lane" data-l="2"><i></i></div>
+    <div class="port" data-p="3"><div class="b">E</div><small>Escalar</small></div>
+  </div>
+
+  <!-- INTRO -->
+  <div class="screen on" id="s-intro">
+    <h1>Engenheiro, em que etapa da <em>travessia da IA</em> você está?</h1>
+    <p class="lead">8 perguntas. 3 minutos. No final, você descobre o que está travando o seu tempo — e recebe um plano prático para avançar de etapa usando IA em orçamento, obra e contrato.</p>
+    <button class="btn" onclick="start()">Iniciar minha travessia →</button>
+    <div class="meta"><span>⏱ <b>3 min</b></span><span>📍 <b>Resultado imediato</b></span><span>🔒 <b>Gratuito</b></span></div>
+  </div>
+
+  <!-- PERGUNTAS -->
+  <div class="screen" id="s-quiz">
+    <div class="qnum" id="qnum"></div>
+    <div class="qtext" id="qtext"></div>
+    <div id="opts"></div>
+  </div>
+
+  <!-- CAPTURA -->
+  <div class="screen" id="s-form">
+    <div class="form-card">
+      <h2>⚓ Seu diagnóstico está pronto.</h2>
+      <p>Diga para onde enviar o resultado completo + o plano da sua próxima etapa.</p>
+      <label>Nome</label><input id="f-nome" placeholder="Seu nome" autocomplete="name">
+      <label>E-mail</label><input id="f-email" type="email" placeholder="voce@email.com" autocomplete="email">
+      <label>WhatsApp</label><input id="f-zap" type="tel" placeholder="(81) 9 9999-9999" autocomplete="tel">
+      <div style="margin-top:20px"><button class="btn" onclick="verResultado()">Ver meu resultado agora →</button></div>
+      <p class="priv">Seus dados ficam comigo. Nada de spam — só a travessia.</p>
+    </div>
+  </div>
+
+  <!-- RESULTADO -->
+  <div class="screen" id="s-result">
+    <div class="res-badge" id="r-badge">N</div>
+    <div class="res-eyebrow">Seu estágio na travessia</div>
+    <div class="res-title" id="r-title"></div>
+    <p class="res-desc" id="r-desc"></p>
+    <div class="res-box"><h3>O que está te custando hoje</h3><ul id="r-custo"></ul></div>
+    <div class="res-box"><h3>Seus próximos 3 passos</h3><ul id="r-passos"></ul></div>
+    <button class="btn" id="r-cta" onclick="irWhats()">Quero avançar de etapa — falar com o Lucas →</button>
+    <button class="btn ghost" onclick="location.href='https://marabertoeng.com.br/'">Conhecer o ObraIA</button>
+  </div>
+</div>
+
+<div class="waves"><svg viewBox="0 0 1200 60" preserveAspectRatio="none"><path d="M0,30 C100,10 200,50 300,30 C400,10 500,50 600,30 C700,10 800,50 900,30 C1000,10 1100,50 1200,30 L1200,60 L0,60 Z" fill="#0d2a4a"/></svg></div>
+
+<script>
+// ===== CONFIG: cole aqui a URL do seu webhook (Sheets/Make/n8n) para salvar leads =====
+const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyFUSg5jhwO-R9mhkiD5cPfr8GWCtsmL6LBN6828RonC0H0ARqqgE0l8D_lQ9f9f6RT/exec";
+const WHATS = "5581997977068";
+
+const QS = [
+ {d:0,q:"Como estão guardadas as informações das suas obras hoje?",o:[
+  "Espalhadas: WhatsApp, e-mail, papel e memória.",
+  "Pastas básicas no computador, sem padrão.",
+  "Organizadas por obra, com padrão que eu sigo.",
+  "Estruturadas para a IA usar: modelos, dados e documentos padronizados."]},
+ {d:0,q:"Quando você pede algo à IA, como costuma pedir?",o:[
+  "Não uso IA no trabalho ainda.",
+  "Pergunta solta, do jeito que vem na cabeça.",
+  "Explico o contexto e anexo o que tenho.",
+  "Tenho prompts e fluxos prontos que reutilizo."]},
+ {d:1,q:"Quantas horas por semana você gasta em tarefas repetitivas (planilha, relatório, medição)?",o:[
+  "Mais de 20 horas. É quase o trabalho todo.",
+  "Entre 10 e 20 horas.",
+  "Entre 5 e 10 horas.",
+  "Menos de 5 — a maioria já roda automatizada."]},
+ {d:1,q:"Você já automatizou algum fluxo do seu trabalho com IA?",o:[
+  "Nunca tentei.",
+  "Tentei, mas não saiu do improviso.",
+  "Tenho pelo menos um fluxo rodando (ex.: orçamento, relatório).",
+  "Vários fluxos rodam com IA no meu dia a dia."]},
+ {d:2,q:"Usar resultado de IA em documento oficial (orçamento, laudo, medição) te causa o quê?",o:[
+  "Medo — prefiro nem usar.",
+  "Uso, mas com receio de estar errado.",
+  "Uso e confiro antes de assinar.",
+  "Uso com protocolo de validação definido. Assino tranquilo."]},
+ {d:2,q:"Como você confere o que a IA gera?",o:[
+  "Não confiro — confio no resultado.",
+  "Leio por cima, no olho.",
+  "Confiro os pontos críticos (quantidades, códigos, premissas).",
+  "Checklist: amostragem, ordem de grandeza e cruzamento com o projeto."]},
+ {d:3,q:"Quando você ganha tempo, esse tempo vira o quê?",o:[
+  "Não ganho tempo — vivo apagando incêndio.",
+  "Mais tarefa operacional na mesma hora.",
+  "Um pouco de gestão e organização.",
+  "Prospecção, precificação e crescimento do negócio."]},
+ {d:3,q:"Como você precifica seus serviços hoje?",o:[
+  "Aceito o que o cliente oferece.",
+  "Por hora ou m², sem muito critério.",
+  "Tabela própria, com margem definida.",
+  "Por valor entregue — e a IA aumentou minha margem."]}
+];
+
+const PROFILES = {
+ N:{b:"N",t:'Você está na etapa <span>NAVEGAR</span>',
+  d:"Seu maior gargalo não é a IA — é a informação desorganizada. Hoje, mesmo a melhor IA do mundo te devolveria respostas genéricas, porque falta contexto estruturado. A boa notícia: essa é a etapa mais rápida de destravar.",
+  c:["<strong>Horas perdidas procurando</strong> arquivo, número e conversa espalhada.","Respostas genéricas da IA que <strong>não servem para nada técnico</strong>.","Retrabalho porque cada obra começa <strong>do zero, sem padrão</strong>."],
+  p:["<strong>Padronize uma obra piloto:</strong> pastas, modelos e dados num formato único.","<strong>Monte sua biblioteca de contexto:</strong> planilhas, memoriais e normas que você mais usa, prontos para anexar à IA.","<strong>Reescreva seus 3 pedidos mais comuns à IA</strong> incluindo contexto completo — e compare o resultado."]},
+ A:{b:"A",t:'Você está na etapa <span>AUTOMATIZAR</span>',
+  d:"Você já organiza bem a informação — mas ainda executa na mão o que poderia rodar sozinho. Você usa IA como assistente pontual, quando ela poderia ser sua equipe. O próximo salto é transformar tarefa repetida em fluxo.",
+  c:["<strong>10-20h/semana em tarefas</strong> que já podem rodar com IA.","Entregas mais lentas que a concorrência que já automatizou.","Seu conhecimento técnico preso em <strong>trabalho braçal</strong>."],
+  p:["<strong>Escolha UMA tarefa</strong> que se repete toda semana (orçamento, diário, relatório) e monte o fluxo dela com IA.","<strong>Suba a escada:</strong> prompt reutilizável → skill → agente. Um degrau por vez.","<strong>Teste um sistema pronto</strong> (como o ObraIA para orçamento SINAPI) e compare o tempo com o seu processo atual."]},
+ V:{b:"V",t:'Você está na etapa <span>VALIDAR</span>',
+  d:"Você já automatiza — mas ou confia demais, ou confia de menos. Falta um protocolo de validação que te deixe assinar com segurança o que a IA produz. É exatamente essa etapa que separa velocidade de imprudência.",
+  c:["<strong>Risco técnico real:</strong> erro de IA assinado é responsabilidade sua (ART é sua).","Ou medo que te faz <strong>desperdiçar a velocidade</strong> que você já conquistou.","Insegurança na frente de cliente e fiscalização."],
+  p:["<strong>Crie seu checklist de validação</strong> por tipo de entrega: quantitativos, códigos, premissas, normas.","<strong>Use amostragem e ordem de grandeza:</strong> conferência de minutos, segurança de anos.","<strong>Documente as conferências</strong> — vira seu diferencial diante de cliente e órgão público."]},
+ E:{b:"E",t:'Você está na etapa <span>ESCALAR</span>',
+  d:"Tecnicamente, você domina o jogo: organiza, automatiza e valida. Seu gargalo agora é de negócio — transformar o tempo que a IA devolve em clientes, margem e crescimento. É a etapa onde engenheiro vira comandante.",
+  c:["Tempo liberado sendo <strong>engolido por mais operacional</strong>.","Preço que <strong>não reflete seu novo nível</strong> de entrega.","Crescimento dependendo só de indicação."],
+  p:["<strong>Reprecifique:</strong> entrega mais rápida e validada vale MAIS, não menos. Cobre por valor.","<strong>Bloqueie na agenda o tempo liberado</strong> para prospecção e gestão — senão o operacional engole.","<strong>Monte sua rotina comercial assistida por IA:</strong> propostas, follow-up e apresentações."]},
+ C:{b:"⚓",t:'Você já navega como <span>COMANDANTE</span>',
+  d:"Poucos engenheiros estão onde você está: informação organizada, fluxos rodando, validação com protocolo e visão de negócio. Seu próximo nível é profundidade e escala — sistemas próprios, equipe e posicionamento premium.",
+  c:["O risco agora é <strong>acomodar</strong> enquanto a fronteira avança.","Conhecimento valioso <strong>não sistematizado</strong> vira dependência de você.","Margem para crescer mais rápido do que está crescendo."],
+  p:["<strong>Transforme seus fluxos em sistema</strong> documentado que funcione sem você.","<strong>Posicione-se como referência:</strong> compartilhe seus resultados — autoridade atrai contrato.","<strong>Vamos conversar:</strong> seu perfil é o de quem colabora, testa e constrói na fronteira."]}
+};
+
+let qi = 0, scores = [0,0,0,0], answers = [];
+const $ = id => document.getElementById(id);
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));$(id).classList.add('on');window.scrollTo(0,0)}
+
+function start(){qi=0;scores=[0,0,0,0];answers=[];show('s-quiz');render()}
+function render(){
+  const Q=QS[qi];
+  $('qnum').textContent=`Pergunta ${qi+1} de ${QS.length}`;
+  $('qtext').textContent=Q.q;
+  $('opts').innerHTML=Q.o.map((o,i)=>`<button class="opt" onclick="pick(${i})"><b>${'ABCD'[i]}</b>${o}</button>`).join('');
+  // acende a rota conforme progresso
+  const prog=qi/QS.length*4;
+  document.querySelectorAll('.port').forEach((p,i)=>p.classList.toggle('lit',i<=prog));
+  document.querySelectorAll('.lane').forEach((l,i)=>l.classList.toggle('lit',i<prog-0.01));
+}
+function pick(i){
+  const Q=QS[qi];scores[Q.d]+=i;answers.push('ABCD'[i]);
+  qi++;
+  if(qi<QS.length){render()}else{
+    document.querySelectorAll('.port').forEach(p=>p.classList.add('lit'));
+    document.querySelectorAll('.lane').forEach(l=>l.classList.add('lit'));
+    show('s-form');
+  }
+}
+function stageKey(){
+  // cada dimensão vale 0-6; primeira dimensão fraca (<4) define a etapa
+  const keys=['N','A','V','E'];
+  for(let i=0;i<4;i++){if(scores[i]<4)return keys[i]}
+  return 'C';
+}
+function verResultado(){
+  const nome=$('f-nome').value.trim(),email=$('f-email').value.trim(),zap=$('f-zap').value.trim();
+  if(!nome||!email){alert('Preencha nome e e-mail para receber o resultado.');return}
+  const st=stageKey();
+  const payload={nome,email,whatsapp:zap,estagio:st,respostas:answers.join(''),scores:scores.join('-'),data:new Date().toISOString(),origem:'diagnostico-nave'};
+  if(WEBHOOK_URL){try{fetch(WEBHOOK_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})}catch(e){}}
+  const P=PROFILES[st];
+  $('r-badge').textContent=P.b;
+  $('r-title').innerHTML=P.t;
+  $('r-desc').textContent=P.d;
+  $('r-custo').innerHTML=P.c.map(x=>`<li>${x}</li>`).join('');
+  $('r-passos').innerHTML=P.p.map(x=>`<li>${x}</li>`).join('');
+  window._lead=payload;
+  show('s-result');
+}
+function irWhats(){
+  const l=window._lead||{};
+  const msg=encodeURIComponent(`Olá Lucas! Fiz o Diagnóstico NAVE e meu estágio é "${l.estagio||'?'}" (respostas: ${l.respostas||''}). Meu nome é ${l.nome||''} e quero avançar de etapa.`);
+  window.open(`https://wa.me/${WHATS}?text=${msg}`,'_blank');
+}
+</script>
+</body>
+</html>
