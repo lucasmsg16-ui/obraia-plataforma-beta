@@ -161,9 +161,9 @@ form.addEventListener("submit", async (e) => {
       if(data.session){
         window.location.href = "dashboard.html";
       } else {
+        setMode("login");
         msgBox.className = "msg ok";
         msgBox.textContent = "Conta criada! Verifique seu e-mail para confirmar o acesso antes de entrar.";
-        setMode("login");
       }
     }
   } catch(err){
