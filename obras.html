@@ -55,8 +55,8 @@ label{font-size:12.5px;font-weight:600;display:block;margin-bottom:4px}
 .bar > i{display:block;height:100%;background:var(--blue);border-radius:20px;transition:width .35s}
 .bar.done > i{background:var(--green)}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:var(--navy);color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:8px 9px;text-align:left;position:sticky;top:58px}
-td{border-bottom:1px solid #eef2f7;padding:7px 9px;vertical-align:middle}
+th{background:var(--navy);color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:8px 9px;text-align:left;position:sticky;top:0;z-index:2}
+td{border-bottom:1px solid #eef2f7;padding:7px 9px;vertical-align:middle;overflow-wrap:anywhere}
 tr.fase td{background:#f1f5f9;font-weight:700;color:var(--navy);font-size:12px;text-transform:uppercase;letter-spacing:.4px}
 td.num{text-align:right;white-space:nowrap}
 .pct-in{width:62px;text-align:right;padding:5px 7px;font-size:13px}
@@ -89,6 +89,7 @@ td.num{text-align:right;white-space:nowrap}
 .via p{font-size:12.5px;color:var(--muted);margin:0;line-height:1.5;flex:1}
 .via .btn{align-self:flex-start}
 @media(max-width:720px){ th{position:static} .kpi .v{font-size:20px} }
+.gx text{dominant-baseline:middle}
 </style>
 </head>
 <body>
@@ -125,7 +126,7 @@ td.num{text-align:right;white-space:nowrap}
           <div class="ic">🧱</div>
           <b>Quero orçar no ObraIA</b>
           <p>Envie a planta, gere o levantamento e o orçamento SINAPI. No fim, mande direto para o monitoramento.</p>
-          <a class="btn btn-out" href="index.html">Abrir o ObraIA</a>
+          <a class="btn btn-out" href="index.html" target="_blank" rel="noopener">Abrir o ObraIA</a>
         </div>
         <div class="via">
           <div class="ic">✏️</div>
@@ -156,6 +157,7 @@ td.num{text-align:right;white-space:nowrap}
         <button class="on" onclick="aba('serv',this)">Serviços</button>
         <button onclick="aba('crono',this)">Cronograma</button>
         <button onclick="aba('curva',this)">Curva S</button>
+        <button onclick="aba('mes',this)">Mês a mês</button>
         <button onclick="aba('hist',this)">Histórico</button>
       </div>
       <div id="abaServ">
@@ -183,6 +185,7 @@ td.num{text-align:right;white-space:nowrap}
       </div>
       <div id="abaCrono" class="hide"></div>
       <div id="abaCurva" class="hide"></div>
+      <div id="abaMes" class="hide"></div>
       <div id="abaHist" class="hide"></div>
     </div>
   </section>
@@ -734,10 +737,11 @@ function ligarTempoReal(obraId){
 function aba(qual,btn){
   document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
   btn.classList.add("on");
-  ["Serv","Crono","Curva","Hist"].forEach(x=>document.getElementById("aba"+x).classList.add("hide"));
+  ["Serv","Crono","Curva","Mes","Hist"].forEach(x=>document.getElementById("aba"+x).classList.add("hide"));
   if(qual==="serv") document.getElementById("abaServ").classList.remove("hide");
   if(qual==="crono"){ document.getElementById("abaCrono").classList.remove("hide"); cronograma(); }
   if(qual==="curva"){ document.getElementById("abaCurva").classList.remove("hide"); curvaS(); }
+  if(qual==="mes"){ document.getElementById("abaMes").classList.remove("hide"); mesAmes(); }
   if(qual==="hist"){ document.getElementById("abaHist").classList.remove("hide"); historico(); }
 }
 
@@ -860,20 +864,28 @@ function cronograma(){
     const y=34+i*30, x1=px(a.ini), x2=px(a.fim), w=Math.max(3,x2-x1);
     const cor=a.critica?"#dc2626":"#1792C0";
     const atras=hoje>a.fim&&a.pct<100;
+    // o rótulo é recortado na faixa da esquerda: sem isso, nome comprido invadia
+    // a área das barras e ficava "escondido atrás" delas
+    const fim1=x1+w;
+    const pctDentro = fim1 > W-70;      // % ficaria fora do gráfico → põe dentro da barra
     return `<g>
       <rect x="0" y="${y-11}" width="${W}" height="26" fill="${i%2?"#f8fafc":"#fff"}"/>
-      <text x="8" y="${y+5}" font-size="12" font-weight="600" fill="#002B40">${esc(a.nome.slice(0,30))}</text>
+      <g clip-path="url(#clpLbl)"><text x="8" y="${y+5}" font-size="12" font-weight="600" fill="#002B40">${esc(a.nome)}</text></g>
       <text x="${LBL-8}" y="${y+5}" font-size="10.5" fill="#94a3b8" text-anchor="end">${a.dur}d</text>
       <rect x="${x1}" y="${y-7}" width="${w}" height="18" rx="4" fill="${cor}" opacity=".18"/>
       <rect x="${x1}" y="${y-7}" width="${w*Math.min(1,a.pct/100)}" height="18" rx="4" fill="${cor}"/>
       <rect x="${x1}" y="${y-7}" width="${w}" height="18" rx="4" fill="none" stroke="${atras?"#dc2626":cor}" stroke-width="${atras?1.6:1}"/>
-      <text x="${x1+w+6}" y="${y+5}" font-size="10.5" font-weight="700" fill="${a.pct>0?cor:"#94a3b8"}">${nf(a.pct)}%</text>
+      <text x="${pctDentro? fim1-5 : fim1+6}" y="${y+5}" font-size="10.5" font-weight="700"
+        text-anchor="${pctDentro?"end":"start"}"
+        fill="${pctDentro && a.pct>55 ? "#fff" : (a.pct>0?cor:"#94a3b8")}">${nf(a.pct)}%</text>
       <title>${esc(a.nome)}\n${fmt(dia(a.ini))} → ${fmt(dia(a.fim))} · ${a.dur} dias\n${money(a.valor)} · ${nf(a.pct)}% executado\n${a.critica?"CAMINHO CRÍTICO":"folga "+a.folga+" dias"}</title>
     </g>`;
   }).join("");
-  const gantt=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;min-width:760px">
+  const gantt=`<svg class="gx" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;min-width:760px">
+    <defs><clipPath id="clpLbl"><rect x="0" y="0" width="${LBL-34}" height="${H}"/></clipPath></defs>
+    <rect x="${LBL}" y="18" width="${TRK}" height="${H-32}" fill="#fff"/>
     ${meses.map(m=>`<line x1="${px(m.off)}" y1="18" x2="${px(m.off)}" y2="${H-14}" stroke="#e8eef4"/>
-      <text x="${px(m.off)+3}" y="14" font-size="10" fill="#94a3b8">${m.txt}</text>`).join("")}
+      <text x="${Math.min(px(m.off)+3, W-30)}" y="14" font-size="10" fill="#94a3b8">${m.txt}</text>`).join("")}
     ${barras}
     ${hoje>=0&&hoje<=d.fim?`<line x1="${px(hoje)}" y1="18" x2="${px(hoje)}" y2="${H-14}" stroke="#dc2626" stroke-width="1.6" stroke-dasharray="5,4"/>
       <text x="${px(hoje)+4}" y="${H-18}" font-size="10" font-weight="700" fill="#dc2626">hoje</text>`:""}
@@ -1030,7 +1042,7 @@ async function curvaS(){
       ${real.map(p=>`<circle cx="${X(p.t)}" cy="${Y(p.pct)}" r="3.6" fill="#16a34a"><title>${fmt(dia(p.t))}: ${nf(p.pct)}% · ${money(p.v)}</title></circle>`).join("")}
       ${hoje>=0&&hoje<=d.fim?`<line x1="${X(hoje)}" y1="${PT}" x2="${X(hoje)}" y2="${H-PB}" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5,4"/>
         <text x="${X(hoje)+4}" y="${PT+11}" font-size="10.5" font-weight="700" fill="#dc2626">hoje</text>`:""}
-      ${[0,.25,.5,.75,1].map(f=>`<text x="${X(d.fim*f)}" y="${H-16}" font-size="10.5" fill="#64748b" text-anchor="middle">${fmt(dia(d.fim*f))}</text>`).join("")}
+      ${[0,.25,.5,.75,1].map((f,i)=>`<text x="${X(d.fim*f)}" y="${H-16}" font-size="10.5" fill="#64748b" text-anchor="${i===0?"start":i===4?"end":"middle"}">${fmt(dia(d.fim*f))}</text>`).join("")}
     </svg>
     <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px">
       <span><b style="color:#1792C0">╌╌</b> Previsto — desenhado pelo cronograma que você montou (não é reta)</span>
@@ -1041,6 +1053,101 @@ async function curvaS(){
       Se as duas se afastam, a diferença em reais aparece no cartão <b>Desvio</b> — é o quanto de obra
       deixou de ser feito (ou foi adiantado) em relação ao plano.
     </div>`;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// AVANÇO MÊS A MÊS — a leitura que o dono da obra faz na prática
+// Um acumulado sozinho não responde "como foi ESTE mês". Aqui cada mês desde o
+// início mostra o que foi feito no período e o acumulado ao fim dele, comparado
+// com o que o cronograma previa para a mesma data.
+// ═════════════════════════════════════════════════════════════════════════════
+function _mesesObra(){
+  const d0=OBRA.data_inicio? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
+  const d=_calcCrono(); const fim=d?d.fim:(Number(OBRA.prazo_dias)||180);
+  const out=[]; let c=new Date(d0.getFullYear(),d0.getMonth(),1);
+  const ultimo=new Date(d0.getTime()+fim*86400000);
+  while(c<=ultimo && out.length<60){
+    const ini=new Date(c), fimM=new Date(c.getFullYear(),c.getMonth()+1,0,23,59,59);
+    out.push({ini, fim:fimM, chave:`${c.getFullYear()}-${String(c.getMonth()+1).padStart(2,"0")}`,
+      rotulo:c.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})});
+    c=new Date(c.getFullYear(),c.getMonth()+1,1);
+  }
+  return out;
+}
+async function mesAmes(){
+  const host=document.getElementById("abaMes");
+  const d=_calcCrono();
+  if(!d||!d.total){ host.innerHTML=`<div class="vazio"><div class="ic">📆</div>Sem dados para o mês a mês.</div>`; return; }
+  const d0=OBRA.data_inicio? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
+  const {data:av}=await sb.from("obra_avancos").select("data_ref,pct,item_id,autor_email,criado_em")
+    .eq("obra_id",OBRA.id).order("data_ref");
+  const vmap={},nmap={}; ITENS.forEach(i=>{vmap[i.id]=Number(i.valor)||0; nmap[i.id]=i.descricao;});
+  const meses=_mesesObra();
+  // acumulado real ao FIM de cada mês = último % de cada item até aquela data
+  const ult={}; const linhas=[]; let antes=0;
+  meses.forEach(m=>{
+    (av||[]).filter(x=>{ const t=new Date(x.data_ref+"T00:00:00"); return t<=m.fim; })
+      .forEach(x=>{ ult[x.item_id]=Number(x.pct); });
+    const acum=Object.keys(ult).reduce((s,k)=>s+(vmap[k]||0)*ult[k]/100,0);
+    const noMes=acum-antes; antes=acum;
+    // previsto acumulado no fim do mês, pelo cronograma
+    const t=(m.fim-d0)/86400000;
+    let prev=0; d.ativ.forEach(a=>{ prev+=a.valor*Math.max(0,Math.min(1,(t-a.ini)/(a.dur||1))); });
+    linhas.push({...m, acum, noMes, prev,
+      pctAcum:d.total>0?acum/d.total*100:0, pctPrev:d.total>0?prev/d.total*100:0,
+      passou: m.fim<=new Date()});
+  });
+  const maxMes=Math.max(1,...linhas.map(l=>Math.abs(l.noMes)));
+  const opts=linhas.map(l=>`<option value="${l.chave}">${l.rotulo}</option>`).join("");
+  host.innerHTML=`
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <label style="margin:0">Ver detalhe de
+        <select id="mesSel" style="margin-left:6px;max-width:230px" onchange="detalheMes()">
+          <option value="">— todos os meses —</option>${opts}
+        </select></label>
+      <span style="font-size:12px;color:var(--muted)">Só os meses já vencidos entram na comparação.</span>
+    </div>
+    <div style="overflow:auto"><table>
+      <thead><tr><th>Mês</th><th class="num">Executado no mês</th><th style="width:170px">Ritmo</th>
+        <th class="num">Acumulado real</th><th class="num">Previsto</th><th class="num">Desvio</th></tr></thead>
+      <tbody>${linhas.map(l=>{
+        const dv=l.pctAcum-l.pctPrev;
+        const cor=!l.passou?"#94a3b8":dv>=-2?"#16a34a":dv>=-10?"#d97706":"#dc2626";
+        return `<tr${l.passou?"":' style="opacity:.5"'}>
+          <td><b>${l.rotulo.charAt(0).toUpperCase()+l.rotulo.slice(1)}</b>${l.passou?"":' <span style="font-size:10.5px;color:var(--muted)">(futuro)</span>'}</td>
+          <td class="num">${l.noMes>0?money(l.noMes):"—"}</td>
+          <td><div class="bar"><i style="width:${Math.min(100,Math.abs(l.noMes)/maxMes*100)}%;background:${l.noMes>0?"var(--blue)":"#e8eef4"}"></i></div></td>
+          <td class="num"><b>${nf(l.pctAcum)}%</b></td>
+          <td class="num" style="color:var(--muted)">${nf(l.pctPrev)}%</td>
+          <td class="num"><b style="color:${cor}">${l.passou?(dv>=0?"+":"")+nf(dv)+" p.p.":"—"}</b></td>
+        </tr>`;}).join("")}
+      </tbody></table></div>
+    <div id="detMes" style="margin-top:16px"></div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:10px">
+      <b>Executado no mês</b> = quanto de obra avançou naquele período (diferença do acumulado).
+      <b>Desvio</b> = real menos previsto pelo cronograma, em pontos percentuais.
+    </div>`;
+  window.__mesLinhas=linhas; window.__av=av||[]; window.__nmap=nmap; window.__vmap=vmap;
+}
+function detalheMes(){
+  const ch=document.getElementById("mesSel").value;
+  const host=document.getElementById("detMes");
+  if(!ch){ host.innerHTML=""; return; }
+  const l=(window.__mesLinhas||[]).find(x=>x.chave===ch); if(!l) return;
+  const dentro=(window.__av||[]).filter(x=>{ const t=new Date(x.data_ref+"T00:00:00"); return t>=l.ini&&t<=l.fim; });
+  if(!dentro.length){ host.innerHTML=`<div class="msg info">Nenhum lançamento em ${l.rotulo}.</div>`; return; }
+  // último lançamento de cada serviço no mês
+  const porItem={}; dentro.forEach(x=>{ porItem[x.item_id]=x; });
+  const linhas=Object.keys(porItem).map(k=>({...porItem[k], nome:(window.__nmap||{})[k]||"(serviço removido)", valor:(window.__vmap||{})[k]||0}));
+  host.innerHTML=`<div class="card" style="margin:0">
+    <b style="color:var(--navy)">${l.rotulo.charAt(0).toUpperCase()+l.rotulo.slice(1)}</b>
+    <span style="font-size:12.5px;color:var(--muted)"> · ${linhas.length} serviço(s) movimentado(s) · ${dentro.length} lançamento(s)</span>
+    <div style="overflow:auto;margin-top:10px"><table>
+      <thead><tr><th>Serviço</th><th class="num">% no fim do mês</th><th class="num">Valor</th><th>Quem lançou</th></tr></thead>
+      <tbody>${linhas.map(x=>`<tr><td>${esc(x.nome)}</td><td class="num"><b>${nf(x.pct)}%</b></td>
+        <td class="num">${money(x.valor*x.pct/100)}</td>
+        <td style="font-size:12px">${esc(x.autor_email||"—")}</td></tr>`).join("")}
+      </tbody></table></div></div>`;
 }
 
 async function historico(){
