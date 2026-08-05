@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitorar minhas obras — ObraIA</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230057a8'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='Arial,sans-serif' font-weight='bold' fill='white'%3EM%3C/text%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --navy:#002B40; --blue:#1792C0; --bg:#f0f4f8; --card:#fff; --border:#dce3ea;
+  --text:#2c3e50; --muted:#7f8c8d; --green:#16a34a; --amber:#d97706; --red:#dc2626;
+  --shadow:0 2px 12px rgba(26,60,94,.10);
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text)}
+header{background:linear-gradient(135deg,var(--navy) 0%,#1792C0 100%);color:#fff;padding:0 22px;height:58px;
+  display:flex;align-items:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.22);position:sticky;top:0;z-index:40}
+header .logo{font-size:19px;font-weight:700;letter-spacing:-.5px}
+header .logo span{color:#4db8e8}
+header a{color:#fff;text-decoration:none;font-size:13px;opacity:.85}
+header a:hover{opacity:1;text-decoration:underline}
+header .right{margin-left:auto;display:flex;align-items:center;gap:13px;font-size:12.5px;color:rgba(255,255,255,.9)}
+header button{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.28);color:#fff;
+  padding:6px 12px;border-radius:7px;font-size:12.5px;cursor:pointer;font-family:inherit}
+header button:hover{background:rgba(255,255,255,.22)}
+main{max-width:1180px;margin:0 auto;padding:26px 20px 60px}
+h1{font-size:23px;margin:0 0 4px;color:var(--navy)}
+.sub{color:var(--muted);font-size:14px;margin:0 0 22px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:13px;box-shadow:var(--shadow);padding:20px;margin-bottom:18px}
+.btn{padding:9px 17px;border:0;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-block}
+.btn-primary{background:var(--navy);color:#fff}
+.btn-primary:hover{background:#013a56}
+.btn-blue{background:var(--blue);color:#fff}
+.btn-out{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+.btn-out:hover{border-color:var(--blue);color:var(--blue)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+input,select,textarea{padding:9px 11px;border:1.5px solid var(--border);border-radius:7px;font-size:14px;font-family:inherit;outline:0;width:100%}
+input:focus,select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,146,192,.14)}
+label{font-size:12.5px;font-weight:600;display:block;margin-bottom:4px}
+.grid{display:grid;gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:13px;margin-bottom:18px}
+.kpi{background:#fff;border:1px solid var(--border);border-radius:11px;padding:14px 16px}
+.kpi .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+.kpi .v{font-size:24px;font-weight:800;color:var(--navy);margin-top:3px;line-height:1.15}
+.kpi .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+.kpi.ok .v{color:var(--green)} .kpi.warn .v{color:var(--amber)} .kpi.bad .v{color:var(--red)}
+.obra-card{display:flex;align-items:center;gap:16px;padding:14px;border:1px solid var(--border);border-radius:11px;
+  background:#fff;margin-bottom:10px;cursor:pointer;transition:.15s}
+.obra-card:hover{border-color:var(--blue);box-shadow:var(--shadow)}
+.obra-card .nm{font-weight:700;font-size:15px;color:var(--navy)}
+.obra-card .mt{font-size:12px;color:var(--muted);margin-top:2px}
+.bar{height:8px;background:#e8eef4;border-radius:20px;overflow:hidden;min-width:110px}
+.bar > i{display:block;height:100%;background:var(--blue);border-radius:20px;transition:width .35s}
+.bar.done > i{background:var(--green)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:var(--navy);color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.4px;padding:8px 9px;text-align:left;position:sticky;top:58px}
+td{border-bottom:1px solid #eef2f7;padding:7px 9px;vertical-align:middle}
+tr.fase td{background:#f1f5f9;font-weight:700;color:var(--navy);font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+td.num{text-align:right;white-space:nowrap}
+.pct-in{width:62px;text-align:right;padding:5px 7px;font-size:13px}
+.chip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px}
+.chip.z{background:#f1f5f9;color:#64748b}
+.chip.p{background:#eaf6fb;color:var(--blue)}
+.chip.c{background:#dcfce7;color:#166534}
+.chip.man{background:#fef3c7;color:#92400e}
+.vazio{text-align:center;padding:38px 18px;color:var(--muted)}
+.vazio .ic{font-size:44px;margin-bottom:10px}
+.hide{display:none}
+.msg{font-size:13px;padding:10px 13px;border-radius:8px;margin:10px 0}
+.msg.err{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+.msg.ok{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+.msg.info{background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.live{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--green);font-weight:700}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.modal{position:fixed;inset:0;background:rgba(0,20,35,.55);display:flex;align-items:center;justify-content:center;padding:18px;z-index:60}
+.modal > div{background:#fff;border-radius:13px;max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:22px}
+.tabs{display:flex;gap:6px;border-bottom:2px solid var(--border);margin-bottom:16px;flex-wrap:wrap}
+.tabs button{background:none;border:0;padding:9px 15px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-2px;font-family:inherit}
+.tabs button.on{color:var(--navy);border-bottom-color:var(--blue)}
+.hist{font-size:12px;color:var(--muted);border-left:2px solid var(--border);padding:5px 0 5px 10px;margin-top:5px}
+@media(max-width:720px){ th{position:static} .kpi .v{font-size:20px} }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Obra<span>IA</span></div>
+  <a href="dashboard.html">← Meus produtos</a>
+  <div class="right">
+    <span id="uEmail"></span>
+    <button id="btnSair">Sair</button>
+  </div>
+</header>
+
+<main>
+  <!-- ══ LISTA DE OBRAS ══ -->
+  <section id="viewLista">
+    <h1>Monitorar minhas obras</h1>
+    <p class="sub">Avanço físico e financeiro atualizado por quem está no canteiro — você acompanha de onde estiver.</p>
+    <div id="listaMsg"></div>
+    <div id="lista"></div>
+    <div class="card" style="border-style:dashed;text-align:center">
+      <b style="color:var(--navy)">Começar a monitorar uma obra</b>
+      <p style="font-size:13px;color:var(--muted);margin:6px 0 14px">
+        Abra um levantamento no ObraIA, gere o orçamento e clique em <b>Monitorar esta obra</b>.
+        Ou crie uma obra em branco e lance os serviços na mão.
+      </p>
+      <button class="btn btn-primary" onclick="novaObra()">+ Nova obra em branco</button>
+      <a class="btn btn-out" href="index.html" style="margin-left:6px">Abrir o ObraIA</a>
+    </div>
+  </section>
+
+  <!-- ══ OBRA ABERTA ══ -->
+  <section id="viewObra" class="hide">
+    <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:6px">
+      <div style="flex:1;min-width:220px">
+        <h1 id="obraNome" style="margin-bottom:2px"></h1>
+        <p class="sub" id="obraMeta" style="margin-bottom:0"></p>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <span class="live hide" id="selo"><i></i> ao vivo</span>
+        <button class="btn btn-out" onclick="verLista()">← Obras</button>
+        <button class="btn btn-out" onclick="abrirEquipe()">👥 Equipe</button>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <div class="tabs">
+        <button class="on" onclick="aba('serv',this)">Serviços</button>
+        <button onclick="aba('curva',this)">Curva S</button>
+        <button onclick="aba('hist',this)">Histórico</button>
+      </div>
+      <div id="abaServ">
+        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+          <input id="filtro" placeholder="Filtrar serviço…" style="max-width:280px" oninput="pintarItens()">
+          <select id="fFase" style="max-width:200px" onchange="pintarItens()"><option value="">Todas as fases</option></select>
+          <select id="fSit" style="max-width:180px" onchange="pintarItens()">
+            <option value="">Toda situação</option>
+            <option value="z">Não iniciados</option>
+            <option value="p">Em andamento</option>
+            <option value="c">Concluídos</option>
+          </select>
+          <button class="btn btn-out" style="margin-left:auto" onclick="addItemManual()">+ Serviço manual</button>
+        </div>
+        <div id="itensMsg"></div>
+        <div style="overflow:auto;max-height:62vh">
+          <table>
+            <thead><tr>
+              <th>Serviço</th><th class="num">Qtd</th><th class="num">Valor</th>
+              <th style="width:150px">% executado</th><th class="num">Executado</th><th>Situação</th>
+            </tr></thead>
+            <tbody id="tbItens"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="abaCurva" class="hide"></div>
+      <div id="abaHist" class="hide"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const SUPA_URL="https://xjzbqikappmaijfkxmms.supabase.co";
+const SUPA_KEY="sb_publishable_8h0mEd8mtbb5RY9JmhzoDw_W2RKJIYs";
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+let USER=null, OBRA=null, ITENS=[], CANAL=null;
+
+const nf=v=>(Number(v)||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const money=v=>"R$ "+nf(v);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const msg=(el,txt,tipo)=>{const e=document.getElementById(el); if(!e)return; e.innerHTML=txt?`<div class="msg ${tipo||"info"}">${txt}</div>`:"";};
+
+// ── sessão ──
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){ location.href="login.html"; return; }
+  USER=session.user;
+  document.getElementById("uEmail").textContent=USER.email;
+  await carregarLista();
+  const id=new URLSearchParams(location.search).get("obra");
+  if(id) abrirObra(id);
+  await importarDoOrcamento();
+})();
+document.getElementById("btnSair").onclick=async()=>{ await sb.auth.signOut(); location.href="login.html"; };
+
+// ═══ LISTA ═══
+async function carregarLista(){
+  const {data,error}=await sb.from("obra_resumo").select("*").order("ultimo_lancamento",{ascending:false,nullsFirst:false});
+  const host=document.getElementById("lista");
+  if(error){ msg("listaMsg","Não consegui carregar suas obras: "+esc(error.message),"err"); return; }
+  if(!data||!data.length){ host.innerHTML=""; return; }
+  host.innerHTML=data.map(o=>{
+    const p=Number(o.pct_fisico)||0;
+    const q=o.ultimo_lancamento? new Date(o.ultimo_lancamento).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "sem lançamento";
+    return `<div class="obra-card" onclick="abrirObra('${o.id}')">
+      <div style="flex:1;min-width:0">
+        <div class="nm">${esc(o.nome)}</div>
+        <div class="mt">${o.itens} serviço(s) · ${money(o.valor_total)} · último lançamento: ${q}</div>
+      </div>
+      <div style="text-align:right;min-width:120px">
+        <div style="font-weight:800;font-size:17px;color:${p>=100?"var(--green)":"var(--navy)"}">${nf(p)}%</div>
+        <div class="bar ${p>=100?"done":""}"><i style="width:${Math.min(100,p)}%"></i></div>
+      </div>
+    </div>`;
+  }).join("");
+}
+function verLista(){
+  if(CANAL){ sb.removeChannel(CANAL); CANAL=null; }
+  document.getElementById("viewObra").classList.add("hide");
+  document.getElementById("viewLista").classList.remove("hide");
+  document.getElementById("selo").classList.add("hide");
+  history.replaceState({},"",location.pathname);
+  carregarLista();
+}
+async function novaObra(){
+  const nome=prompt("Nome da obra:",""); if(!nome) return;
+  const {data,error}=await sb.from("obras").insert({dono:USER.id,nome:nome.trim(),data_inicio:new Date().toISOString().slice(0,10)}).select().single();
+  if(error){ alert("Não consegui criar: "+error.message); return; }
+  await sb.from("obra_membros").insert({obra_id:data.id,usuario:USER.id,papel:"dono",email:USER.email});
+  abrirObra(data.id);
+}
+
+// ═══ IMPORTA O ORÇAMENTO VINDO DO OBRAIA ═══
+// O sistema principal grava o orçamento validado aqui; ao abrir esta tela,
+// ele vira uma obra monitorável. Assim o levantamento não é redigitado.
+async function importarDoOrcamento(){
+  let pend=null;
+  try{ pend=JSON.parse(localStorage.getItem("obraia_monitorar")||"null"); }catch(e){}
+  if(!pend||!pend.itens||!pend.itens.length) return;
+  localStorage.removeItem("obraia_monitorar");
+  if(!confirm(`Criar a obra "${pend.nome||"Sem nome"}" com ${pend.itens.length} serviço(s) do orçamento?`)) return;
+  const {data:o,error}=await sb.from("obras").insert({
+    dono:USER.id, nome:(pend.nome||"Obra sem nome").slice(0,160), cliente:pend.cliente||null,
+    data_inicio:pend.inicio||new Date().toISOString().slice(0,10), prazo_dias:pend.prazo||null, bdi:pend.bdi||0
+  }).select().single();
+  if(error){ alert("Falha ao criar a obra: "+error.message); return; }
+  await sb.from("obra_membros").insert({obra_id:o.id,usuario:USER.id,papel:"dono",email:USER.email});
+  const linhas=pend.itens.map((it,i)=>({
+    obra_id:o.id, ordem:i, categoria:it.categoria||null, fase:it.fase||null, codigo:it.codigo||null,
+    descricao:String(it.descricao||"Serviço").slice(0,400), unidade:it.unidade||null,
+    quantidade:Number(it.quantidade)||0, preco_unit:Number(it.preco)||0, valor:Number(it.valor)||0, manual:false
+  }));
+  for(let i=0;i<linhas.length;i+=500){
+    const {error:e2}=await sb.from("obra_itens").insert(linhas.slice(i,i+500));
+    if(e2){ alert("Falha ao gravar os serviços: "+e2.message); break; }
+  }
+  abrirObra(o.id);
+}
+
+// ═══ OBRA ═══
+async function abrirObra(id){
+  const {data:o,error}=await sb.from("obras").select("*").eq("id",id).single();
+  if(error||!o){ alert("Obra não encontrada ou sem acesso."); verLista(); return; }
+  OBRA=o;
+  document.getElementById("viewLista").classList.add("hide");
+  document.getElementById("viewObra").classList.remove("hide");
+  document.getElementById("obraNome").textContent=o.nome;
+  document.getElementById("obraMeta").textContent=
+    [o.cliente, o.data_inicio?("início "+new Date(o.data_inicio+"T00:00:00").toLocaleDateString("pt-BR")):null,
+     o.prazo_dias?(o.prazo_dias+" dias de prazo"):null].filter(Boolean).join(" · ")||"—";
+  history.replaceState({},"","?obra="+id);
+  await carregarItens();
+  ligarTempoReal(id);
+}
+async function carregarItens(){
+  const {data,error}=await sb.from("obra_itens_situacao").select("*").eq("obra_id",OBRA.id).order("ordem");
+  if(error){ msg("itensMsg","Falha ao carregar os serviços: "+esc(error.message),"err"); return; }
+  ITENS=data||[];
+  const fases=[...new Set(ITENS.map(i=>i.fase).filter(Boolean))];
+  const sel=document.getElementById("fFase");
+  sel.innerHTML='<option value="">Todas as fases</option>'+fases.map(f=>`<option>${esc(f)}</option>`).join("");
+  pintarKPIs(); pintarItens();
+}
+function pintarKPIs(){
+  const total=ITENS.reduce((s,i)=>s+Number(i.valor||0),0);
+  const feito=ITENS.reduce((s,i)=>s+Number(i.valor_executado||0),0);
+  const pct=total>0?feito/total*100:0;
+  // avanço PREVISTO pela data: linha reta do início até o prazo. É a régua contra
+  // a qual o avanço real é comparado — sem ela, "40% executado" não diz nada.
+  let prev=null, desvio=null;
+  if(OBRA.data_inicio&&OBRA.prazo_dias>0){
+    const d0=new Date(OBRA.data_inicio+"T00:00:00");
+    const dias=Math.floor((Date.now()-d0.getTime())/86400000);
+    prev=Math.max(0,Math.min(100,dias/OBRA.prazo_dias*100));
+    desvio=pct-prev;
+  }
+  const conc=ITENS.filter(i=>Number(i.pct)>=100).length;
+  const and=ITENS.filter(i=>Number(i.pct)>0&&Number(i.pct)<100).length;
+  const cls=desvio==null?"":(desvio>=-2?"ok":desvio>=-10?"warn":"bad");
+  document.getElementById("kpis").innerHTML=`
+    <div class="kpi"><div class="l">Avanço físico</div><div class="v">${nf(pct)}%</div>
+      <div class="s">ponderado pelo valor de cada serviço</div>
+      <div class="bar" style="margin-top:7px"><i style="width:${Math.min(100,pct)}%"></i></div></div>
+    <div class="kpi"><div class="l">Executado</div><div class="v" style="font-size:19px">${money(feito)}</div>
+      <div class="s">de ${money(total)}</div></div>
+    ${prev!=null?`<div class="kpi ${cls}"><div class="l">Previsto para hoje</div><div class="v">${nf(prev)}%</div>
+      <div class="s">${desvio>=0?"adiantado":"atrasado"} ${nf(Math.abs(desvio))} p.p.</div></div>`:""}
+    <div class="kpi"><div class="l">Serviços</div><div class="v">${conc}<span style="font-size:15px;color:var(--muted)">/${ITENS.length}</span></div>
+      <div class="s">${and} em andamento</div></div>
+    <div class="kpi"><div class="l">A executar</div><div class="v" style="font-size:19px">${money(total-feito)}</div>
+      <div class="s">saldo do contrato</div></div>`;
+}
+function pintarItens(){
+  const q=(document.getElementById("filtro").value||"").toLowerCase().trim();
+  const ff=document.getElementById("fFase").value, fs=document.getElementById("fSit").value;
+  const sit=i=>{const p=Number(i.pct)||0; return p>=100?"c":p>0?"p":"z";};
+  const lista=ITENS.filter(i=>
+    (!q||String(i.descricao).toLowerCase().includes(q)||String(i.codigo||"").toLowerCase().includes(q))&&
+    (!ff||i.fase===ff)&&(!fs||sit(i)===fs));
+  if(!lista.length){ document.getElementById("tbItens").innerHTML=
+    `<tr><td colspan="6" class="vazio">Nenhum serviço com esse filtro.</td></tr>`; return; }
+  let html="", faseAtual=null;
+  lista.forEach(i=>{
+    if(i.fase&&i.fase!==faseAtual){ faseAtual=i.fase; html+=`<tr class="fase"><td colspan="6">${esc(i.fase)}</td></tr>`; }
+    const p=Number(i.pct)||0, s=sit(i);
+    const lbl={z:"Não iniciado",p:"Em andamento",c:"Concluído"}[s];
+    const quem=i.atualizado_por?`<div class="hist">último: ${esc(i.atualizado_por)} · ${new Date(i.atualizado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</div>`:"";
+    html+=`<tr>
+      <td><b>${esc(i.descricao)}</b>${i.manual?' <span class="chip man">manual</span>':""}
+        <div style="font-size:11.5px;color:var(--muted)">${esc(i.codigo||"—")}</div>${quem}</td>
+      <td class="num">${nf(i.quantidade)}<div style="font-size:11px;color:var(--muted)">${esc(i.unidade||"")}</div></td>
+      <td class="num">${money(i.valor)}</td>
+      <td><div style="display:flex;align-items:center;gap:6px">
+        <input class="pct-in" type="number" min="0" max="100" step="1" value="${p}"
+               onchange="lancar('${i.id}',this.value,this)"> %
+      </div><div class="bar" style="margin-top:5px"><i style="width:${Math.min(100,p)}%"></i></div></td>
+      <td class="num">${money(i.valor_executado)}</td>
+      <td><span class="chip ${s}">${lbl}</span></td>
+    </tr>`;
+  });
+  document.getElementById("tbItens").innerHTML=html;
+}
+
+// ═══ LANÇAMENTO — insere no log, nunca sobrescreve ═══
+async function lancar(itemId,valor,el){
+  let p=parseFloat(String(valor).replace(",","."));
+  if(!(p>=0&&p<=100)){ alert("O percentual precisa ficar entre 0 e 100."); carregarItens(); return; }
+  p=Math.round(p*100)/100;
+  if(el) el.disabled=true;
+  const {error}=await sb.from("obra_avancos").insert({
+    obra_id:OBRA.id, item_id:itemId, pct:p, autor:USER.id, autor_email:USER.email
+  });
+  if(el) el.disabled=false;
+  if(error){ msg("itensMsg","Não consegui gravar o lançamento: "+esc(error.message),"err"); return; }
+  msg("itensMsg","","");
+  await carregarItens();
+}
+async function addItemManual(){
+  const d=prompt("Descrição do serviço (ex.: Escavação de vala para tapume):",""); if(!d) return;
+  const un=prompt("Unidade (M2, M3, UN, VB…):","UN")||"UN";
+  const qt=parseFloat(String(prompt("Quantidade:","1")||"1").replace(",","."))||0;
+  const pu=parseFloat(String(prompt("Preço unitário (R$):","0")||"0").replace(",","."))||0;
+  const fase=prompt("Fase (opcional, ex.: Serviços Preliminares):","")||null;
+  const ordem=ITENS.length?Math.max(...ITENS.map(i=>i.ordem||0))+1:0;
+  const {error}=await sb.from("obra_itens").insert({
+    obra_id:OBRA.id,ordem,fase,descricao:d.trim().slice(0,400),unidade:un.trim().toUpperCase(),
+    quantidade:qt,preco_unit:pu,valor:Math.round(qt*pu*100)/100,manual:true});
+  if(error){ alert("Não consegui incluir: "+error.message); return; }
+  carregarItens();
+}
+
+// ═══ TEMPO REAL — o painel de quem está viajando ═══
+function ligarTempoReal(obraId){
+  if(CANAL) sb.removeChannel(CANAL);
+  CANAL=sb.channel("obra-"+obraId)
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"obra_avancos",filter:"obra_id=eq."+obraId},
+      ()=>{ carregarItens(); })
+    .subscribe(st=>{ document.getElementById("selo").classList.toggle("hide", st!=="SUBSCRIBED"); });
+}
+
+// ═══ ABAS ═══
+function aba(qual,btn){
+  document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
+  btn.classList.add("on");
+  ["Serv","Curva","Hist"].forEach(x=>document.getElementById("aba"+x).classList.add("hide"));
+  if(qual==="serv") document.getElementById("abaServ").classList.remove("hide");
+  if(qual==="curva"){ document.getElementById("abaCurva").classList.remove("hide"); curvaS(); }
+  if(qual==="hist"){ document.getElementById("abaHist").classList.remove("hide"); historico(); }
+}
+async function curvaS(){
+  const host=document.getElementById("abaCurva");
+  const {data}=await sb.from("obra_avancos").select("data_ref,pct,item_id").eq("obra_id",OBRA.id).order("data_ref");
+  const total=ITENS.reduce((s,i)=>s+Number(i.valor||0),0);
+  if(!data||!data.length||!total){ host.innerHTML=`<div class="vazio"><div class="ic">📈</div>
+    Sem lançamentos ainda. A curva real aparece a partir do primeiro % informado.</div>`; return; }
+  const vmap={}; ITENS.forEach(i=>vmap[i.id]=Number(i.valor||0));
+  // acumulado real por dia: último % de cada item até aquela data
+  const dias=[...new Set(data.map(d=>d.data_ref))].sort();
+  const ult={}, serie=[];
+  dias.forEach(d=>{
+    data.filter(x=>x.data_ref===d).forEach(x=>{ ult[x.item_id]=Number(x.pct); });
+    const ac=Object.keys(ult).reduce((s,k)=>s+(vmap[k]||0)*ult[k]/100,0);
+    serie.push({d,ac,pct:ac/total*100});
+  });
+  const W=760,H=270,pad=44;
+  const x=i=>pad+(serie.length<2?0:i*(W-pad*1.4)/(serie.length-1));
+  const y=p=>H-pad-(p/100)*(H-pad*1.6);
+  const linha=serie.map((s,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(s.pct).toFixed(1)}`).join(" ");
+  let prevPath="";
+  if(OBRA.data_inicio&&OBRA.prazo_dias>0){
+    const d0=new Date(OBRA.data_inicio+"T00:00:00").getTime();
+    const pp=serie.map((s,i)=>{
+      const dd=Math.floor((new Date(s.d+"T00:00:00").getTime()-d0)/86400000);
+      return `${i?"L":"M"}${x(i).toFixed(1)},${y(Math.max(0,Math.min(100,dd/OBRA.prazo_dias*100))).toFixed(1)}`;
+    }).join(" ");
+    prevPath=`<path d="${pp}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="7,5"/>`;
+  }
+  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
+    ${[0,25,50,75,100].map(p=>`<line x1="${pad}" y1="${y(p)}" x2="${W-12}" y2="${y(p)}" stroke="#eef2f7"/>
+      <text x="${pad-8}" y="${y(p)+4}" font-size="10" fill="#94a3b8" text-anchor="end">${p}%</text>`).join("")}
+    ${prevPath}
+    <path d="${linha}" fill="none" stroke="#1792C0" stroke-width="3" stroke-linejoin="round"/>
+    ${serie.map((s,i)=>`<circle cx="${x(i)}" cy="${y(s.pct)}" r="3.5" fill="#1792C0"><title>${s.d}: ${nf(s.pct)}%</title></circle>`).join("")}
+    <text x="${pad}" y="${H-10}" font-size="10" fill="#64748b">${serie[0].d}</text>
+    <text x="${W-12}" y="${H-10}" font-size="10" fill="#64748b" text-anchor="end">${serie[serie.length-1].d}</text>
+  </svg>
+  <div style="font-size:12px;color:var(--muted);margin-top:8px">
+    <b style="color:var(--blue)">━</b> executado real (do histórico de lançamentos) ·
+    <b style="color:#94a3b8">╌</b> previsto linear pelo prazo contratual
+  </div>`;
+}
+async function historico(){
+  const host=document.getElementById("abaHist");
+  const {data}=await sb.from("obra_avancos").select("*").eq("obra_id",OBRA.id).order("criado_em",{ascending:false}).limit(200);
+  if(!data||!data.length){ host.innerHTML=`<div class="vazio"><div class="ic">🕑</div>Nenhum lançamento ainda.</div>`; return; }
+  const nome={}; ITENS.forEach(i=>nome[i.id]=i.descricao);
+  host.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+    Registro completo, em ordem. Nada é apagado nem sobrescrito — é assim que se sabe quem informou o quê.</div>
+    <table><thead><tr><th>Quando</th><th>Serviço</th><th class="num">%</th><th>Quem</th></tr></thead><tbody>
+    ${data.map(a=>`<tr>
+      <td style="white-space:nowrap">${new Date(a.criado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</td>
+      <td>${esc(nome[a.item_id]||"(serviço removido)")}</td>
+      <td class="num"><b>${nf(a.pct)}%</b></td>
+      <td style="font-size:12px">${esc(a.autor_email||"—")}</td></tr>`).join("")}
+    </tbody></table>`;
+}
+
+// ═══ EQUIPE ═══
+async function abrirEquipe(){
+  const {data}=await sb.from("obra_membros").select("*").eq("obra_id",OBRA.id);
+  const dono=OBRA.dono===USER.id;
+  const d=document.createElement("div"); d.className="modal";
+  d.innerHTML=`<div>
+    <h2 style="margin:0 0 4px;font-size:18px;color:var(--navy)">👥 Equipe da obra</h2>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">
+      Quem tem acesso pode lançar o avanço, e cada lançamento fica registrado com o nome de quem informou.</p>
+    <div style="margin-bottom:14px">${(data||[]).map(m=>`
+      <div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #eef2f7;font-size:13px">
+        <span style="flex:1">${esc(m.email||m.usuario)}</span>
+        <span class="chip ${m.papel==="dono"?"c":"p"}">${esc(m.papel)}</span>
+        ${dono&&m.usuario!==USER.id?`<button class="btn btn-out" style="padding:3px 9px;font-size:11.5px" onclick="tirarMembro('${m.usuario}',this)">remover</button>`:""}
+      </div>`).join("")||'<p style="font-size:13px;color:var(--muted)">Só você.</p>'}</div>
+    ${dono?`<div class="msg info" style="margin:0 0 12px">
+      Para incluir alguém: a pessoa precisa <b>criar a conta dela</b> no ObraIA primeiro. Depois informe o e-mail abaixo.</div>
+      <label>E-mail de quem vai lançar</label>
+      <div style="display:flex;gap:7px"><input id="mEmail" type="email" placeholder="pessoa@exemplo.com">
+      <button class="btn btn-blue" onclick="addMembro()">Incluir</button></div>
+      <div id="mMsg"></div>`:""}
+    <div style="text-align:right;margin-top:16px">
+      <button class="btn btn-out" onclick="this.closest('.modal').remove()">Fechar</button></div>
+  </div>`;
+  document.body.appendChild(d);
+  d.onclick=e=>{ if(e.target===d) d.remove(); };
+}
+async function addMembro(){
+  const em=(document.getElementById("mEmail").value||"").trim().toLowerCase();
+  if(!em) return;
+  // o convite exige que a conta exista: sem user_id não há como registrar autoria
+  const {data,error}=await sb.rpc("buscar_usuario_por_email",{p_email:em});
+  if(error||!data){ msg("mMsg","Não achei uma conta com esse e-mail. Peça para a pessoa se cadastrar no ObraIA primeiro.","err"); return; }
+  const {error:e2}=await sb.from("obra_membros").insert({obra_id:OBRA.id,usuario:data,papel:"editor",email:em});
+  if(e2){ msg("mMsg","Não consegui incluir: "+esc(e2.message),"err"); return; }
+  msg("mMsg","Incluído. A pessoa já pode lançar o avanço desta obra.","ok");
+  document.getElementById("mEmail").value="";
+}
+async function tirarMembro(uid,btn){
+  if(!confirm("Remover o acesso desta pessoa? Os lançamentos que ela já fez continuam no histórico.")) return;
+  await sb.from("obra_membros").delete().eq("obra_id",OBRA.id).eq("usuario",uid);
+  btn.closest("div").remove();
+}
+</script>
+</body>
+</html>
