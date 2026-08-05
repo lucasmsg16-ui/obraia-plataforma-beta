@@ -342,16 +342,43 @@ function _palpite(cab, chaves, prefere){
   return achado;
 }
 const _COM_BDI = ["com bdi","c/ bdi","c/bdi","com b.d.i","incl bdi","c/ b.d.i","total geral","final"];
-// soma de cada coluna numérica candidata — serve para o usuário reconhecer a dele
-function _somasColunas(){
-  const m=_lerMap(); const sums={};
-  PLAN.cab.forEach((h,i)=>{
-    if(i===m.qtd) return;
-    let s=0, n=0;
-    PLAN.corpo.forEach(L=>{ const v=_n(L[i]); if(v){ s+=v; n++; } });
-    if(n>=3 && s>0) sums[i]={cab:h||("Coluna "+(i+1)), soma:s, linhas:n};
+
+// Classifica as linhas do mesmo jeito que a importação faz. Somar uma coluna
+// sobre TODAS as linhas dá um número que não existe: em planilha de obra a linha
+// de etapa costuma repetir o subtotal daquela etapa, então tudo entra duas vezes.
+// A sugestão de coluna PRECISA olhar exatamente as linhas que vão ser importadas,
+// senão ela indica uma coluna que "bate" e que depois entrega outro total.
+function _classificarLinhas(){
+  const m=_lerMap(); const serv=[], etapas=[];
+  PLAN.corpo.forEach(L=>{
+    const cel=i=>i>=0?L[i]:"";
+    const desc=String(cel(m.desc)||"").trim(); if(!desc) return;
+    const qtd=_n(cel(m.qtd)), pu=_n(cel(m.pu));
+    let tot=m.tot>=0?_n(cel(m.tot)):0; if(!tot) tot=qtd*pu;
+    const item=String(cel(m.item)||"").trim();
+    const ehEtapa=(!qtd && !tot) || (item && /^\d+$/.test(item) && !qtd);
+    (ehEtapa?etapas:serv).push({L,qtd,pu});
   });
-  return sums;
+  return {serv, etapas, m};
+}
+// Para cada coluna numérica: soma nas linhas de SERVIÇO, soma nas de ETAPA e
+// quanto ela é coerente com quantidade × preço unitário (isso separa uma coluna
+// de VALOR TOTAL de verdade de uma coluna qualquer que somou perto por acaso).
+function _somasColunas(){
+  const {serv, etapas, m}=_classificarLinhas(); const out={};
+  PLAN.cab.forEach((h,i)=>{
+    if(i===m.qtd || i===m.desc || i===m.item) return;
+    let sS=0,nS=0,sE=0, coer=0, testados=0;
+    serv.forEach(r=>{
+      const v=_n(r.L[i]); if(v){ sS+=v; nS++; }
+      const esperado=r.qtd*r.pu;
+      if(esperado>0 && v>0){ testados++; if(Math.abs(v-esperado)/esperado<=0.02) coer++; }
+    });
+    etapas.forEach(r=>{ sE+=_n(r.L[i]); });
+    if(nS>=3 && sS>0) out[i]={cab:h||("Coluna "+(i+1)), soma:sS, linhas:nS, somaEtapas:sE,
+                              coerencia: testados? coer/testados : null, testados};
+  });
+  return out;
 }
 function mapear(){
   const cab = PLAN.cab;
@@ -437,9 +464,12 @@ function previa(){
       <td class="num">${money(i.valor)}</td></tr>`).join("")}
     ${its.length>60?`<tr><td colspan="5" style="text-align:center;color:var(--muted);font-size:12px">…e mais ${its.length-60} serviço(s)</td></tr>`:""}
     </tbody></table>`;
+  const m=_lerMap();
+  const mesmaCol = (m.pu>=0 && m.pu===m.tot);
   msg("mapMsg",`<b>${its.length} serviço(s)</b> em <b>${fases.length} etapa(s)</b> · total lido: <b>${money(total)}</b>`+
-    (semValor?` · <b style="color:#b45309">${semValor} sem valor</b> (entram, mas não pesam no avanço financeiro)`:""),
-    semValor?"info":"ok");
+    (semValor?` · <b style="color:#b45309">${semValor} sem valor</b> (entram, mas não pesam no avanço financeiro)`:"")+
+    (mesmaCol?`<br><b style="color:#b45309">⚠ Preço unitário e Valor total apontam para a MESMA coluna</b> — uma das duas está errada.`:""),
+    (semValor||mesmaCol)?"info":"ok");
   conferirTotal(total);
 }
 // Compara o que foi lido com o total que o usuário conhece da planilha dele.
@@ -471,21 +501,56 @@ function conferirTotal(lido){
 function acharColuna(){
   const esp=_n((document.getElementById("mEsperado")||{}).value);
   if(!esp){ msg("bdiMsg","Informe primeiro o total da sua planilha no campo acima.","info"); return; }
-  const sums=_somasColunas();
-  const cand=Object.keys(sums).map(i=>({i:+i,...sums[i],dif:Math.abs(sums[i].soma-esp)/esp*100}))
-    .sort((a,b)=>a.dif-b.dif);
-  if(!cand.length){ msg("bdiMsg","Não encontrei colunas numéricas para comparar.","err"); return; }
-  const bom=cand.filter(c=>c.dif<=1);
-  msg("bdiMsg", bom.length
-    ? `✓ A coluna <b>"${esc(bom[0].cab)}"</b> soma ${money(bom[0].soma)} — é a que bate com a sua planilha.
-       <div style="margin-top:8px"><button class="btn btn-blue" style="padding:5px 12px;font-size:12.5px"
-         onclick="usarColuna(${bom[0].i})">Usar esta coluna como Valor total</button></div>`
-    : `Nenhuma coluna bate exatamente. As três mais próximas:<br>`+
-      cand.slice(0,3).map(c=>`• <b>${esc(c.cab)}</b>: ${money(c.soma)} (${nf(c.dif)}% de diferença)
-        <button class="btn btn-out" style="padding:2px 8px;font-size:11.5px;margin-left:5px" onclick="usarColuna(${c.i})">usar</button>`).join("<br>"),
-    bom.length?"ok":"info");
+  const m=_lerMap(); const sums=_somasColunas();
+  const cand=Object.keys(sums).map(i=>{
+    const c={i:+i, ...sums[i]};
+    c.dif=Math.abs(c.soma-esp)/esp*100;
+    c.difEtapas=c.somaEtapas>0 ? Math.abs(c.somaEtapas-esp)/esp*100 : null;
+    // um "valor total" de verdade reproduz quantidade × preço unitário na linha
+    c.valeComoTotal = (c.coerencia==null) ? null : c.coerencia>=0.6;
+    c.ehPU = (+i===m.pu);
+    return c;
+  });
+  const bons=cand.filter(c=>c.dif<=1 && c.valeComoTotal!==false && !c.ehPU).sort((a,b)=>a.dif-b.dif);
+  const suspeito=cand.filter(c=>c.dif<=1 && (c.valeComoTotal===false || c.ehPU));
+  const porEtapa=cand.filter(c=>c.difEtapas!=null && c.difEtapas<=1).sort((a,b)=>a.difEtapas-b.difEtapas);
+  if(bons.length){
+    const b=bons[0];
+    msg("bdiMsg",`✓ A coluna <b>"${esc(b.cab)}"</b> soma <b>${money(b.soma)}</b> nas ${b.linhas} linhas de serviço — bate com a sua planilha`+
+      (b.coerencia!=null?` e confere com quantidade × preço unitário em ${Math.round(b.coerencia*100)}% das linhas`:"")+`.
+      <div style="margin-top:8px"><button class="btn btn-blue" style="padding:5px 12px;font-size:12.5px"
+        onclick="usarColuna(${b.i})">Usar esta coluna como Valor total</button></div>`,"ok");
+    return;
+  }
+  let txt="";
+  if(suspeito.length){
+    const s=suspeito[0];
+    txt+=`⚠ A coluna <b>"${esc(s.cab)}"</b> soma perto do seu total, mas <b>não é um valor total</b>:
+      ${s.ehPU?"ela já está mapeada como <b>preço unitário</b>":"os valores dela não correspondem a quantidade × preço unitário"}.
+      Somar preço unitário não significa nada — foi coincidência. Não use.<br><br>`;
+  }
+  if(porEtapa.length){
+    const e=porEtapa[0];
+    txt+=`💡 Achei o seu total <b>nas linhas de ETAPA</b> da coluna "${esc(e.cab)}" (${money(e.somaEtapas)}).
+      Sua planilha guarda o subtotal na linha do título da etapa. Para o monitoramento eu preciso do valor
+      <b>serviço a serviço</b> — confira se existe uma coluna de total preenchida nas linhas de serviço.<br><br>`;
+  }
+  const top=cand.filter(c=>!c.ehPU).sort((a,b)=>a.dif-b.dif).slice(0,4);
+  txt+=`Somas nas linhas de serviço:<br>`+top.map(c=>
+    `• <b>${esc(c.cab)}</b>: ${money(c.soma)} (${nf(c.dif)}% de diferença)`+
+    (c.coerencia!=null?` · confere com qtd×preço em ${Math.round(c.coerencia*100)}%`:"")+
+    ` <button class="btn btn-out" style="padding:2px 8px;font-size:11.5px;margin-left:4px" onclick="usarColuna(${c.i})">usar</button>`).join("<br>");
+  txt+=`<br><br><button class="btn btn-out" style="padding:4px 11px;font-size:12.5px" onclick="usarColuna(-1)">
+    Calcular pelo quantidade × preço unitário</button>`;
+  msg("bdiMsg",txt,"info");
 }
-function usarColuna(i){ document.getElementById("mTot").value=String(i); previa(); }
+function usarColuna(i){
+  document.getElementById("mTot").value=String(i);
+  // se o usuário escolher para TOTAL a mesma coluna do preço unitário, o cálculo
+  // vira preço unitário puro — libera o unitário para o sistema recalcular
+  if(i>=0 && String(i)===document.getElementById("mPu").value) document.getElementById("mPu").value="-1";
+  previa();
+}
 // Sem coluna com BDI na planilha: aplica o percentual sobre os valores lidos.
 function aplicarBDI(p){
   const v=prompt("BDI a aplicar sobre os valores lidos (%):", nf(p).replace(".",""));
