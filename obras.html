@@ -348,18 +348,34 @@ const _COM_BDI = ["com bdi","c/ bdi","c/bdi","com b.d.i","incl bdi","c/ b.d.i","
 // de etapa costuma repetir o subtotal daquela etapa, então tudo entra duas vezes.
 // A sugestão de coluna PRECISA olhar exatamente as linhas que vão ser importadas,
 // senão ela indica uma coluna que "bate" e que depois entrega outro total.
+function _tipoLinha(L, m){
+  const cel=i=>i>=0?L[i]:"";
+  const desc=String(cel(m.desc)||"").trim();
+  const qtd=_n(cel(m.qtd)), pu=_n(cel(m.pu));
+  let tot=m.tot>=0?_n(cel(m.tot)):0; if(!tot) tot=qtd*pu;
+  const item=String(cel(m.item)||"").trim();
+  const temItem=/^\d+(\.\d+)*$/.test(item);
+  if(!desc) return {tipo:"vazia"};
+  // ── CONTINUAÇÃO: descrição que quebrou em várias linhas no Excel ──
+  // Sem código de item, sem quantidade e sem valor. Tratar isso como "etapa"
+  // (o que o código fazia) apagava a etapa verdadeira E descartava o serviço
+  // inteiro — foi por isso que o total importado saiu muito menor que o da
+  // planilha. Aqui ela é COLADA na descrição do serviço anterior, que é o que
+  // ela realmente é.
+  if(!temItem && !qtd && !tot) return {tipo:"continua", desc};
+  // ── ETAPA: tem código de item e nenhuma quantidade (linha de título) ──
+  if(temItem && !qtd && !tot) return {tipo:"etapa", desc, item};
+  return {tipo:"servico", desc, item, qtd, pu, tot, cel};
+}
 function _classificarLinhas(){
-  const m=_lerMap(); const serv=[], etapas=[];
+  const m=_lerMap(); const serv=[], etapas=[], cont=[];
   PLAN.corpo.forEach(L=>{
-    const cel=i=>i>=0?L[i]:"";
-    const desc=String(cel(m.desc)||"").trim(); if(!desc) return;
-    const qtd=_n(cel(m.qtd)), pu=_n(cel(m.pu));
-    let tot=m.tot>=0?_n(cel(m.tot)):0; if(!tot) tot=qtd*pu;
-    const item=String(cel(m.item)||"").trim();
-    const ehEtapa=(!qtd && !tot) || (item && /^\d+$/.test(item) && !qtd);
-    (ehEtapa?etapas:serv).push({L,qtd,pu});
+    const r=_tipoLinha(L,m);
+    if(r.tipo==="servico") serv.push({L,qtd:r.qtd,pu:r.pu});
+    else if(r.tipo==="etapa") etapas.push({L});
+    else if(r.tipo==="continua") cont.push({L});
   });
-  return {serv, etapas, m};
+  return {serv, etapas, cont, m};
 }
 // Para cada coluna numérica: soma nas linhas de SERVIÇO, soma nas de ETAPA e
 // quanto ela é coerente com quantidade × preço unitário (isso separa uma coluna
@@ -433,21 +449,19 @@ function _lerMap(){
 // Converte as linhas cruas em serviços + etapas, aplicando a hierarquia do item.
 function _extrair(){
   const m=_lerMap(); const out=[]; let fase=null;
+  const k=()=>1+(Number(PLAN.bdi)||0)/100;
   PLAN.corpo.forEach(L=>{
-    const cel=i=>i>=0?L[i]:"";
-    const desc=String(cel(m.desc)||"").trim();
-    if(!desc) return;
-    const qtd=_n(cel(m.qtd)), pu=_n(cel(m.pu));
-    let tot=m.tot>=0?_n(cel(m.tot)):0;
-    if(!tot) tot=qtd*pu;
-    const item=String(cel(m.item)||"").trim();
-    // etapa = linha sem quantidade e sem valor (título), ou item de 1º nível
-    const ehEtapa = (!qtd && !tot) || (item && /^\d+$/.test(item) && !qtd);
-    if(ehEtapa){ fase=desc.slice(0,120); return; }
-    const k = 1 + (Number(PLAN.bdi)||0)/100;      // BDI informado, quando a planilha não traz
-    out.push({ item, fase, codigo:String(cel(m.cod)||"").trim()||null,
-      descricao:desc.slice(0,400), unidade:String(cel(m.un)||"").trim().toUpperCase()||null,
-      quantidade:qtd, preco:(pu||(qtd?tot/qtd:0))*k, valor:Math.round(tot*k*100)/100 });
+    const r=_tipoLinha(L,m);
+    if(r.tipo==="vazia") return;
+    if(r.tipo==="etapa"){ fase=r.desc.slice(0,120); return; }
+    if(r.tipo==="continua"){                       // emenda no serviço anterior
+      if(out.length) out[out.length-1].descricao=(out[out.length-1].descricao+" "+r.desc).slice(0,400);
+      return;
+    }
+    const cel=r.cel;
+    out.push({ item:r.item, fase, codigo:String(cel(m.cod)||"").trim()||null,
+      descricao:r.desc.slice(0,400), unidade:String(cel(m.un)||"").trim().toUpperCase()||null,
+      quantidade:r.qtd, preco:(r.pu||(r.qtd?r.tot/r.qtd:0))*k(), valor:Math.round(r.tot*k()*100)/100 });
   });
   return out;
 }
@@ -465,9 +479,11 @@ function previa(){
     ${its.length>60?`<tr><td colspan="5" style="text-align:center;color:var(--muted);font-size:12px">…e mais ${its.length-60} serviço(s)</td></tr>`:""}
     </tbody></table>`;
   const m=_lerMap();
+  const {cont}=_classificarLinhas();
   const mesmaCol = (m.pu>=0 && m.pu===m.tot);
   msg("mapMsg",`<b>${its.length} serviço(s)</b> em <b>${fases.length} etapa(s)</b> · total lido: <b>${money(total)}</b>`+
     (semValor?` · <b style="color:#b45309">${semValor} sem valor</b> (entram, mas não pesam no avanço financeiro)`:"")+
+    (cont.length?` · ${cont.length} linha(s) de descrição emendadas ao serviço acima`:"")+
     (mesmaCol?`<br><b style="color:#b45309">⚠ Preço unitário e Valor total apontam para a MESMA coluna</b> — uma das duas está errada.`:""),
     (semValor||mesmaCol)?"info":"ok");
   conferirTotal(total);
@@ -726,134 +742,307 @@ function aba(qual,btn){
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// CRONOGRAMA A PARTIR DA PRÓPRIA PLANILHA
-// As etapas da planilha do usuário viram as barras do Gantt. A duração de cada
-// uma é proporcional ao seu peso no custo — que é a prática usual quando não há
-// produtividade lançada: quem custa 30% da obra consome perto de 30% do prazo.
-// A sobreposição entre etapas vizinhas é ajustável, porque obra real não é fila.
-// O avanço REAL de cada etapa vem dos lançamentos, então o Gantt mostra os dois
-// lados: a barra prevista e, dentro dela, quanto já foi executado.
+// CRONOGRAMA PDM DA OBRA — mesmo modelo do ObraIA (TI / II / TT / IT)
+// As ETAPAS da planilha viram as atividades da rede. A duração de cada uma nasce
+// do peso dela no custo (prática usual quando não há produtividade lançada) e
+// pode ser editada. Os vínculos entre etapas são ajustáveis um a um.
+// A curva S PREVISTA sai daqui: cada etapa distribui o seu valor ao longo da
+// própria barra, e o acumulado dia a dia é a curva. Não é uma reta chutada — é o
+// desenho do cronograma que você montou.
 // ═════════════════════════════════════════════════════════════════════════════
+const TIPOS_V = {
+  FS:{lb:"TI", nome:"Término → Início",  desc:"só começa quando a anterior termina"},
+  SS:{lb:"II", nome:"Início → Início",   desc:"começa junto com a anterior (paralelo)"},
+  FF:{lb:"TT", nome:"Término → Término", desc:"termina junto com a anterior (paralelo)"},
+  SF:{lb:"IT", nome:"Início → Término",  desc:"termina quando a anterior começa (raro)"},
+};
+const _lagD=(v,durPred)=> v.un==="d" ? v.lag : (v.lag/100)*(durPred||0);
+const _vLabel=(v,durPred)=>{ const t=TIPOS_V[v.tipo]||TIPOS_V.FS;
+  if(!v.lag) return t.lb;
+  const sg=v.lag>0?"+":"−", n=Math.abs(v.lag);
+  return v.un==="d" ? `${t.lb}${sg}${n}d` : `${t.lb}${sg}${n}%`; };
+
 function _fases(){
-  const m = new Map();
-  ITENS.forEach(i => {
-    const f = i.fase || "Sem etapa";
-    if(!m.has(f)) m.set(f, {nome:f, valor:0, exec:0, itens:0});
-    const o = m.get(f);
-    o.valor += Number(i.valor)||0; o.exec += Number(i.valor_executado)||0; o.itens++;
-  });
+  const m=new Map();
+  ITENS.forEach(i=>{ const f=i.fase||"Sem etapa";
+    if(!m.has(f)) m.set(f,{nome:f,valor:0,exec:0,itens:0});
+    const o=m.get(f); o.valor+=Number(i.valor)||0; o.exec+=Number(i.valor_executado)||0; o.itens++; });
   return [...m.values()];
 }
+// Rede padrão sugerida: cadeia TI entre as etapas, na ordem da planilha, com
+// 20% de sobreposição — obra real não é fila, mas também não começa tudo junto.
+function _cronoCfg(){
+  const fs=_fases();
+  const salvo=(OBRA.cronograma&&typeof OBRA.cronograma==="object")?OBRA.cronograma:{};
+  const cfg={prazo:Number(OBRA.prazo_dias)||180, dur:{}, links:{}};
+  Object.assign(cfg, salvo);
+  cfg.dur=Object.assign({},salvo.dur||{});
+  cfg.links=Object.assign({},salvo.links||{});
+  fs.forEach((f,i)=>{ if(!cfg.links[f.nome])
+    cfg.links[f.nome]= i===0?[]:[{p:fs[i-1].nome,tipo:"SS",lag:80,un:"%"}]; });
+  return cfg;
+}
+// Forward/backward pass do PDM sobre as etapas.
+function _calcCrono(){
+  const fs=_fases(); if(!fs.length) return null;
+  const cfg=_cronoCfg();
+  const total=fs.reduce((s,f)=>s+f.valor,0);
+  const nomes=fs.map(f=>f.nome);
+  const dur={};
+  fs.forEach(f=>{ dur[f.nome]= cfg.dur[f.nome]>0 ? cfg.dur[f.nome]
+    : Math.max(1, Math.round(cfg.prazo*(total>0?f.valor/total:1/fs.length))); });
+  const preds={}, succ={};
+  nomes.forEach(n=>{ preds[n]=(cfg.links[n]||[]).filter(v=>nomes.includes(v.p)); succ[n]=[]; });
+  nomes.forEach(n=>preds[n].forEach(v=>succ[v.p].push({n,...v})));
+  // ordem topológica (com proteção contra ciclo)
+  const indeg={}; nomes.forEach(n=>indeg[n]=new Set(preds[n].map(v=>v.p)).size);
+  const fila=nomes.filter(n=>indeg[n]===0), ordem=[], visto={}; nomes.forEach(n=>visto[n]=new Set());
+  while(fila.length){ const n=fila.shift(); ordem.push(n);
+    succ[n].forEach(s=>{ if(!visto[s.n].has(n)){ visto[s.n].add(n); if(--indeg[s.n]===0) fila.push(s.n); } }); }
+  const ciclo = ordem.length!==nomes.length;
+  if(ciclo) ordem.splice(0,ordem.length,...nomes);
+  const ES={},EF={};
+  ordem.forEach(n=>{ let es=0;
+    preds[n].forEach(v=>{ const lag=_lagD(v,dur[v.p]); let c;
+      if(v.tipo==="SS") c=ES[v.p]+lag;
+      else if(v.tipo==="FF") c=EF[v.p]+lag-dur[n];
+      else if(v.tipo==="SF") c=ES[v.p]+lag-dur[n];
+      else c=EF[v.p]+lag;
+      if(c>es) es=c; });
+    ES[n]=Math.max(0,es); EF[n]=ES[n]+dur[n]; });
+  const fim=Math.max(...nomes.map(n=>EF[n]));
+  const LS={},LF={};
+  [...ordem].reverse().forEach(n=>{ let lf=fim;
+    succ[n].forEach(s=>{ const lag=_lagD(s,dur[n]); let c;
+      if(s.tipo==="SS") c=LS[s.n]-lag+dur[n];
+      else if(s.tipo==="FF") c=LF[s.n]-lag;
+      else if(s.tipo==="SF") c=LF[s.n]-lag+dur[n];
+      else c=LS[s.n]-lag;
+      if(c<lf) lf=c; });
+    LF[n]=lf; LS[n]=lf-dur[n]; });
+  const ativ=fs.map(f=>({...f, dur:dur[f.nome], ini:ES[f.nome], fim:EF[f.nome],
+    folga:Math.round(LS[f.nome]-ES[f.nome]),
+    critica:Math.round(LS[f.nome]-ES[f.nome])<=0,
+    pct: f.valor>0? f.exec/f.valor*100 : 0,
+    preds:preds[f.nome].map(v=>({...v,label:_vLabel(v,dur[v.p])}))}))
+    .sort((a,b)=>a.ini-b.ini);
+  return {ativ, fim, total, cfg, ciclo};
+}
+// Curva S PREVISTA: cada etapa espalha o seu valor pela própria barra.
+function _curvaPrevista(d, passos){
+  const pts=[];
+  for(let k=0;k<=passos;k++){
+    const t=d.fim*k/passos;
+    let ac=0;
+    d.ativ.forEach(a=>{ const fr=Math.max(0,Math.min(1,(t-a.ini)/(a.dur||1))); ac+=a.valor*fr; });
+    pts.push({t, v:ac, pct: d.total>0? ac/d.total*100 : 0});
+  }
+  return pts;
+}
 function cronograma(){
-  const host = document.getElementById("abaCrono");
-  const fs = _fases();
-  const total = fs.reduce((s,f)=>s+f.valor,0);
-  if(!fs.length || !total){ host.innerHTML=`<div class="vazio"><div class="ic">📅</div>
+  const host=document.getElementById("abaCrono");
+  const d=_calcCrono();
+  if(!d||!d.total){ host.innerHTML=`<div class="vazio"><div class="ic">📅</div>
     Sem etapas com valor para montar o cronograma.</div>`; return; }
-  const prazo = Number(OBRA.prazo_dias)||180;
-  const sobr = Number(localStorage.getItem("obraia_sobr_"+OBRA.id)||25);   // % de sobreposição
-  // distribui o prazo pelo peso de custo e desloca cada etapa com sobreposição
-  let cursor = 0; const barras = [];
-  fs.forEach(f => {
-    const dur = Math.max(1, Math.round(prazo * (f.valor/total)));
-    barras.push({...f, ini:Math.round(cursor), dur, fim:Math.round(cursor)+dur,
-                 pct: f.valor>0 ? f.exec/f.valor*100 : 0});
-    cursor += dur * (1 - sobr/100);
-  });
-  const fim = Math.max(...barras.map(b=>b.fim));
-  const d0 = OBRA.data_inicio ? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
-  const dia = n => { const x=new Date(d0); x.setDate(x.getDate()+n); return x.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}); };
-  const hoje = Math.floor((Date.now()-d0.getTime())/86400000);
-  host.innerHTML = `
-    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+  const d0=OBRA.data_inicio? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
+  const dia=n=>{const x=new Date(d0); x.setDate(x.getDate()+Math.round(n)); return x;};
+  const fmt=x=>x.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"});
+  const hoje=(Date.now()-d0.getTime())/86400000;
+  const W=1000, LBL=232, TRK=W-LBL-8;
+  const px=t=>LBL+(d.fim>0? t/d.fim*TRK : 0);
+  // marcos de mês
+  const meses=[]; let cur=new Date(d0.getFullYear(),d0.getMonth(),1);
+  while(true){ const off=(cur-d0)/86400000; if(off>d.fim) break;
+    if(off>=0) meses.push({off, txt:cur.toLocaleDateString("pt-BR",{month:"short"}).replace(".","")+"/"+String(cur.getFullYear()).slice(2)});
+    cur=new Date(cur.getFullYear(),cur.getMonth()+1,1); }
+  const H=d.ativ.length*30+52;
+  const barras=d.ativ.map((a,i)=>{
+    const y=34+i*30, x1=px(a.ini), x2=px(a.fim), w=Math.max(3,x2-x1);
+    const cor=a.critica?"#dc2626":"#1792C0";
+    const atras=hoje>a.fim&&a.pct<100;
+    return `<g>
+      <rect x="0" y="${y-11}" width="${W}" height="26" fill="${i%2?"#f8fafc":"#fff"}"/>
+      <text x="8" y="${y+5}" font-size="12" font-weight="600" fill="#002B40">${esc(a.nome.slice(0,30))}</text>
+      <text x="${LBL-8}" y="${y+5}" font-size="10.5" fill="#94a3b8" text-anchor="end">${a.dur}d</text>
+      <rect x="${x1}" y="${y-7}" width="${w}" height="18" rx="4" fill="${cor}" opacity=".18"/>
+      <rect x="${x1}" y="${y-7}" width="${w*Math.min(1,a.pct/100)}" height="18" rx="4" fill="${cor}"/>
+      <rect x="${x1}" y="${y-7}" width="${w}" height="18" rx="4" fill="none" stroke="${atras?"#dc2626":cor}" stroke-width="${atras?1.6:1}"/>
+      <text x="${x1+w+6}" y="${y+5}" font-size="10.5" font-weight="700" fill="${a.pct>0?cor:"#94a3b8"}">${nf(a.pct)}%</text>
+      <title>${esc(a.nome)}\n${fmt(dia(a.ini))} → ${fmt(dia(a.fim))} · ${a.dur} dias\n${money(a.valor)} · ${nf(a.pct)}% executado\n${a.critica?"CAMINHO CRÍTICO":"folga "+a.folga+" dias"}</title>
+    </g>`;
+  }).join("");
+  const gantt=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;min-width:760px">
+    ${meses.map(m=>`<line x1="${px(m.off)}" y1="18" x2="${px(m.off)}" y2="${H-14}" stroke="#e8eef4"/>
+      <text x="${px(m.off)+3}" y="14" font-size="10" fill="#94a3b8">${m.txt}</text>`).join("")}
+    ${barras}
+    ${hoje>=0&&hoje<=d.fim?`<line x1="${px(hoje)}" y1="18" x2="${px(hoje)}" y2="${H-14}" stroke="#dc2626" stroke-width="1.6" stroke-dasharray="5,4"/>
+      <text x="${px(hoje)+4}" y="${H-18}" font-size="10" font-weight="700" fill="#dc2626">hoje</text>`:""}
+  </svg>`;
+  const crit=d.ativ.filter(a=>a.critica);
+  host.innerHTML=`
+    ${d.ciclo?`<div class="msg err">⚠ Há dependência circular entre etapas — o caminho crítico não é confiável até corrigir.</div>`:""}
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
       <label style="margin:0">Prazo total (dias)
-        <input type="number" min="1" value="${prazo}" style="width:96px;margin-left:6px"
-               onchange="salvarPrazo(this.value)"></label>
-      <label style="margin:0">Sobreposição entre etapas
-        <input type="range" min="0" max="70" value="${sobr}" style="width:150px;vertical-align:middle"
-               oninput="document.getElementById('sobrV').textContent=this.value+'%'"
-               onchange="salvarSobr(this.value)"> <b id="sobrV">${sobr}%</b></label>
-      <span style="font-size:12px;color:var(--muted)">
-        Conclusão prevista: <b>${dia(fim)}</b> (${fim} dias)</span>
+        <input type="number" min="1" value="${d.cfg.prazo}" style="width:92px;margin-left:6px" onchange="salvarPrazo(this.value)"></label>
+      <span style="font-size:12.5px;color:var(--muted)">Conclusão: <b style="color:var(--navy)">${fmt(dia(d.fim))}</b> · ${Math.round(d.fim)} dias</span>
+      <button class="btn btn-out" style="padding:5px 12px;font-size:12.5px;margin-left:auto" onclick="resetCrono()">↺ Rede sugerida</button>
     </div>
-    <div style="overflow:auto">
-      <div style="min-width:640px">
-      ${barras.map(b=>{
-        const l = b.ini/fim*100, w = Math.max(1.5, b.dur/fim*100);
-        const atras = hoje>b.fim && b.pct<100;
-        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px">
-          <div style="flex:0 0 210px;font-size:12.5px;line-height:1.3">
-            <b style="color:var(--navy)">${esc(b.nome)}</b>
-            <div style="color:var(--muted);font-size:11px">${b.itens} serviço(s) · ${money(b.valor)}</div>
-          </div>
-          <div style="flex:1;position:relative;height:26px;background:#f1f5f9;border-radius:5px">
-            <div style="position:absolute;left:${l}%;width:${w}%;top:3px;height:20px;background:${atras?"#fecaca":"#dbeafe"};
-                        border:1px solid ${atras?"#f87171":"#93c5fd"};border-radius:4px;overflow:hidden">
-              <div style="height:100%;width:${Math.min(100,b.pct)}%;background:${b.pct>=100?"var(--green)":"var(--blue)"}"></div>
-            </div>
-            <span style="position:absolute;left:calc(${l}% + 5px);top:5px;font-size:10.5px;font-weight:700;
-                         color:${b.pct>50?"#fff":"var(--navy)"};pointer-events:none">${nf(b.pct)}%</span>
-          </div>
-          <div style="flex:0 0 96px;font-size:11px;color:var(--muted);text-align:right">${dia(b.ini)} → ${dia(b.fim)}</div>
-        </div>`;
-      }).join("")}
-      ${hoje>=0&&hoje<=fim?`<div style="position:relative;height:0">
-        <div style="position:absolute;left:calc(220px + ${hoje/fim*100}% * (100% - 326px) / 100%);border-left:2px dashed #dc2626;height:${barras.length*33+6}px;top:-${barras.length*33+2}px"></div>
-      </div>`:""}
-      </div>
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:10px;background:#fff">${gantt}</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:9px">
+      Barra clara = prazo previsto · parte cheia = <b>avanço real lançado</b> · <b style="color:#dc2626">vermelho</b> = caminho crítico.
+      ${crit.length?`Caminho crítico: <b>${crit.map(a=>esc(a.nome)).join(" → ")}</b>.`:""}
     </div>
-    <div style="font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.6">
-      Barra clara = prazo previsto · preenchimento = <b>avanço real lançado</b> · vermelho = etapa que passou do prazo sem concluir.<br>
-      A duração de cada etapa sai do <b>peso dela no custo</b>. Ajuste o prazo e a sobreposição acima até refletir o seu plano.
+    <h3 style="font-size:14px;color:var(--navy);margin:20px 0 8px">Etapas e vínculos</h3>
+    <div style="overflow:auto"><table>
+      <thead><tr><th>Etapa</th><th class="num">Valor</th><th class="num">Duração</th>
+        <th class="num">Início</th><th class="num">Término</th><th>Depende de</th><th class="num">Folga</th></tr></thead>
+      <tbody>${d.ativ.map(a=>`<tr class="${a.critica?"":""}">
+        <td><b>${esc(a.nome)}</b><div style="font-size:11px;color:var(--muted)">${a.itens} serviço(s)</div></td>
+        <td class="num">${money(a.valor)}</td>
+        <td class="num"><span style="cursor:pointer;color:var(--blue);font-weight:600" onclick="editarDur('${esc(a.nome).replace(/'/g,"\\'")}')">${a.dur}d ✎</span></td>
+        <td class="num">${fmt(dia(a.ini))}</td><td class="num">${fmt(dia(a.fim))}</td>
+        <td style="font-size:11.5px">${a.preds.length? a.preds.map(v=>
+            `<span class="pred-chip" title="${TIPOS_V[v.tipo].nome} — ${TIPOS_V[v.tipo].desc}. Clique para editar."
+              onclick="editarLink('${esc(a.nome).replace(/'/g,"\\'")}','${esc(v.p).replace(/'/g,"\\'")}')">${esc(v.p.slice(0,22))}
+              <span class="lag-badge ${v.tipo==="SS"||v.tipo==="FF"?"par":""}">${v.label}</span></span>`).join(" ")
+          : `<span style="color:var(--muted)">— início da obra</span>`}</td>
+        <td class="num">${a.critica?`<b style="color:#dc2626">crítica</b>`:a.folga+"d"}</td></tr>`).join("")}
+      </tbody></table></div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:8px">
+      <span class="lag-badge">TI</span> término→início ·
+      <span class="lag-badge par">II</span> início→início ·
+      <span class="lag-badge par">TT</span> término→término ·
+      <span class="lag-badge">IT</span> início→término. Clique num vínculo para mudar o tipo e o atraso.
     </div>`;
+}
+function editarDur(fase){
+  const d=_calcCrono(); const a=d.ativ.find(x=>x.nome===fase); if(!a) return;
+  const v=prompt(`Duração de "${fase}", em dias:`, a.dur);
+  if(v===null) return;
+  const n=parseInt(String(v).replace(/[^0-9]/g,""),10);
+  const cfg=_cronoCfg(); if(n>0) cfg.dur[fase]=n; else delete cfg.dur[fase];
+  gravarCrono(cfg);
+}
+function editarLink(fase, pred){
+  const d=_calcCrono(); const a=d.ativ.find(x=>x.nome===fase); if(!a) return;
+  const v=a.preds.find(x=>x.p===pred); if(!v) return;
+  const ex=document.getElementById("linkPop"); if(ex) ex.remove();
+  const pop=document.createElement("div"); pop.id="linkPop"; pop.className="vinc-pop";
+  pop.innerHTML=`
+    <div class="vp-h"><b>${esc(fase)}</b> depende de <b>${esc(pred)}</b></div>
+    <div class="vp-g">${Object.keys(TIPOS_V).map(k=>`
+      <label class="vp-t ${k===v.tipo?"on":""}"><input type="radio" name="lkTipo" value="${k}" ${k===v.tipo?"checked":""}>
+        <b>${TIPOS_V[k].lb}</b><span>${TIPOS_V[k].nome}</span><em>${TIPOS_V[k].desc}</em></label>`).join("")}</div>
+    <div class="vp-l">
+      <label>Atraso<input type="number" id="lkLag" step="1" value="${v.lag}" style="width:80px"></label>
+      <label>Unidade<select id="lkUn">
+        <option value="%" ${v.un==="%"?"selected":""}>% da duração da anterior</option>
+        <option value="d" ${v.un==="d"?"selected":""}>dias</option></select></label>
+      <div class="vp-hint">Positivo espera · negativo adianta</div>
+    </div>
+    <div class="vp-b">
+      <button class="btn btn-blue" onclick="salvarLink('${esc(fase).replace(/'/g,"\\'")}','${esc(pred).replace(/'/g,"\\'")}')">Aplicar</button>
+      <button class="btn btn-out" onclick="removerLink('${esc(fase).replace(/'/g,"\\'")}','${esc(pred).replace(/'/g,"\\'")}')">Remover vínculo</button>
+      <button class="btn btn-out" onclick="document.getElementById('linkPop').remove()">Cancelar</button>
+    </div>`;
+  const h=document.getElementById("abaCrono"); h.insertBefore(pop,h.firstChild);
+  pop.querySelectorAll(".vp-t").forEach(l=>l.addEventListener("click",()=>{
+    pop.querySelectorAll(".vp-t").forEach(x=>x.classList.remove("on")); l.classList.add("on"); }));
+  pop.scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+function salvarLink(fase,pred){
+  const pop=document.getElementById("linkPop"); if(!pop) return;
+  const tipo=(pop.querySelector('input[name="lkTipo"]:checked')||{}).value||"FS";
+  const lag=parseInt(String(document.getElementById("lkLag").value).replace(/[^0-9-]/g,""),10)||0;
+  const un=document.getElementById("lkUn").value==="d"?"d":"%";
+  const cfg=_cronoCfg();
+  cfg.links[fase]=(cfg.links[fase]||[]).map(v=>v.p===pred?{p:pred,tipo,lag,un}:v);
+  pop.remove(); gravarCrono(cfg);
+}
+function removerLink(fase,pred){
+  const cfg=_cronoCfg();
+  cfg.links[fase]=(cfg.links[fase]||[]).filter(v=>v.p!==pred);
+  const pop=document.getElementById("linkPop"); if(pop) pop.remove();
+  gravarCrono(cfg);
 }
 function salvarPrazo(v){
   const n=Math.max(1,parseInt(v,10)||180);
-  sb.from("obras").update({prazo_dias:n}).eq("id",OBRA.id).then(()=>{ OBRA.prazo_dias=n; pintarKPIs(); cronograma(); });
+  const cfg=_cronoCfg(); cfg.prazo=n;
+  sb.from("obras").update({prazo_dias:n,cronograma:cfg}).eq("id",OBRA.id).then(()=>{
+    OBRA.prazo_dias=n; OBRA.cronograma=cfg; pintarKPIs(); cronograma(); });
 }
-function salvarSobr(v){ localStorage.setItem("obraia_sobr_"+OBRA.id, String(parseInt(v,10)||0)); cronograma(); }
+function resetCrono(){
+  if(!confirm("Voltar à rede sugerida? Suas durações e vínculos editados serão perdidos.")) return;
+  sb.from("obras").update({cronograma:null}).eq("id",OBRA.id).then(()=>{ OBRA.cronograma=null; cronograma(); });
+}
+function gravarCrono(cfg){
+  sb.from("obras").update({cronograma:cfg}).eq("id",OBRA.id).then(()=>{ OBRA.cronograma=cfg; cronograma(); pintarKPIs(); });
+}
+
 async function curvaS(){
   const host=document.getElementById("abaCurva");
-  const {data}=await sb.from("obra_avancos").select("data_ref,pct,item_id").eq("obra_id",OBRA.id).order("data_ref");
-  const total=ITENS.reduce((s,i)=>s+Number(i.valor||0),0);
-  if(!data||!data.length||!total){ host.innerHTML=`<div class="vazio"><div class="ic">📈</div>
-    Sem lançamentos ainda. A curva real aparece a partir do primeiro % informado.</div>`; return; }
-  const vmap={}; ITENS.forEach(i=>vmap[i.id]=Number(i.valor||0));
-  // acumulado real por dia: último % de cada item até aquela data
-  const dias=[...new Set(data.map(d=>d.data_ref))].sort();
-  const ult={}, serie=[];
-  dias.forEach(d=>{
-    data.filter(x=>x.data_ref===d).forEach(x=>{ ult[x.item_id]=Number(x.pct); });
+  const d=_calcCrono();
+  if(!d||!d.total){ host.innerHTML=`<div class="vazio"><div class="ic">📈</div>Sem dados para a curva.</div>`; return; }
+  const d0=OBRA.data_inicio? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
+  const dia=n=>{const x=new Date(d0); x.setDate(x.getDate()+Math.round(n)); return x;};
+  const fmt=x=>x.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"});
+  // ── PREVISTA: sai do cronograma que você montou, não de uma reta ──
+  const prev=_curvaPrevista(d,60);
+  // ── REAL: do histórico de lançamentos ──
+  const {data:av}=await sb.from("obra_avancos").select("data_ref,pct,item_id").eq("obra_id",OBRA.id).order("data_ref");
+  const vmap={}; ITENS.forEach(i=>vmap[i.id]=Number(i.valor)||0);
+  const dias=[...new Set((av||[]).map(x=>x.data_ref))].sort();
+  const ult={}, real=[];
+  dias.forEach(dt=>{ (av||[]).filter(x=>x.data_ref===dt).forEach(x=>{ ult[x.item_id]=Number(x.pct); });
     const ac=Object.keys(ult).reduce((s,k)=>s+(vmap[k]||0)*ult[k]/100,0);
-    serie.push({d,ac,pct:ac/total*100});
-  });
-  const W=760,H=270,pad=44;
-  const x=i=>pad+(serie.length<2?0:i*(W-pad*1.4)/(serie.length-1));
-  const y=p=>H-pad-(p/100)*(H-pad*1.6);
-  const linha=serie.map((s,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(s.pct).toFixed(1)}`).join(" ");
-  let prevPath="";
-  if(OBRA.data_inicio&&OBRA.prazo_dias>0){
-    const d0=new Date(OBRA.data_inicio+"T00:00:00").getTime();
-    const pp=serie.map((s,i)=>{
-      const dd=Math.floor((new Date(s.d+"T00:00:00").getTime()-d0)/86400000);
-      return `${i?"L":"M"}${x(i).toFixed(1)},${y(Math.max(0,Math.min(100,dd/OBRA.prazo_dias*100))).toFixed(1)}`;
-    }).join(" ");
-    prevPath=`<path d="${pp}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="7,5"/>`;
-  }
-  host.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">
-    ${[0,25,50,75,100].map(p=>`<line x1="${pad}" y1="${y(p)}" x2="${W-12}" y2="${y(p)}" stroke="#eef2f7"/>
-      <text x="${pad-8}" y="${y(p)+4}" font-size="10" fill="#94a3b8" text-anchor="end">${p}%</text>`).join("")}
-    ${prevPath}
-    <path d="${linha}" fill="none" stroke="#1792C0" stroke-width="3" stroke-linejoin="round"/>
-    ${serie.map((s,i)=>`<circle cx="${x(i)}" cy="${y(s.pct)}" r="3.5" fill="#1792C0"><title>${s.d}: ${nf(s.pct)}%</title></circle>`).join("")}
-    <text x="${pad}" y="${H-10}" font-size="10" fill="#64748b">${serie[0].d}</text>
-    <text x="${W-12}" y="${H-10}" font-size="10" fill="#64748b" text-anchor="end">${serie[serie.length-1].d}</text>
-  </svg>
-  <div style="font-size:12px;color:var(--muted);margin-top:8px">
-    <b style="color:var(--blue)">━</b> executado real (do histórico de lançamentos) ·
-    <b style="color:#94a3b8">╌</b> previsto linear pelo prazo contratual
-  </div>`;
+    real.push({t:(new Date(dt+"T00:00:00")-d0)/86400000, v:ac, pct:d.total>0?ac/d.total*100:0}); });
+  const W=900,H=330,PL=64,PR=18,PT=18,PB=42;
+  const X=t=>PL+(d.fim>0? Math.max(0,Math.min(1,t/d.fim))*(W-PL-PR):0);
+  const Y=p=>H-PB-(Math.max(0,Math.min(100,p))/100)*(H-PT-PB);
+  const path=a=>a.map((p,i)=>`${i?"L":"M"}${X(p.t).toFixed(1)},${Y(p.pct).toFixed(1)}`).join(" ");
+  const area=`${path(prev)} L${X(prev[prev.length-1].t).toFixed(1)},${Y(0)} L${X(prev[0].t).toFixed(1)},${Y(0)} Z`;
+  const hoje=(Date.now()-d0.getTime())/86400000;
+  const pPrev=(()=>{ let ac=0; d.ativ.forEach(a=>{ac+=a.valor*Math.max(0,Math.min(1,(hoje-a.ini)/(a.dur||1)));});
+    return d.total>0?ac/d.total*100:0; })();
+  const pReal=real.length? real[real.length-1].pct : 0;
+  const desvio=pReal-pPrev;
+  const cls=desvio>=-2?"ok":desvio>=-10?"warn":"bad";
+  host.innerHTML=`
+    <div class="kpis" style="margin-bottom:16px">
+      <div class="kpi"><div class="l">Previsto para hoje</div><div class="v">${nf(pPrev)}%</div>
+        <div class="s">${money(d.total*pPrev/100)}</div></div>
+      <div class="kpi ${pReal>=pPrev?"ok":""}"><div class="l">Executado real</div><div class="v">${nf(pReal)}%</div>
+        <div class="s">${money(d.total*pReal/100)}</div></div>
+      <div class="kpi ${cls}"><div class="l">Desvio</div><div class="v">${desvio>=0?"+":""}${nf(desvio)} p.p.</div>
+        <div class="s">${desvio>=0?"adiantado":"atrasado"} · ${money(Math.abs(d.total*desvio/100))}</div></div>
+      <div class="kpi"><div class="l">Conclusão prevista</div><div class="v" style="font-size:17px">${dia(d.fim).toLocaleDateString("pt-BR")}</div>
+        <div class="s">${Math.round(d.fim)} dias de obra</div></div>
+    </div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;min-width:640px">
+      <defs><linearGradient id="gP" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#1792C0" stop-opacity=".22"/><stop offset="100%" stop-color="#1792C0" stop-opacity="0"/>
+      </linearGradient></defs>
+      ${[0,25,50,75,100].map(p=>`<line x1="${PL}" y1="${Y(p)}" x2="${W-PR}" y2="${Y(p)}" stroke="#eef2f7"/>
+        <text x="${PL-9}" y="${Y(p)+4}" font-size="10.5" fill="#94a3b8" text-anchor="end">${p}%</text>`).join("")}
+      <path d="${area}" fill="url(#gP)"/>
+      <path d="${path(prev)}" fill="none" stroke="#1792C0" stroke-width="2.6" stroke-dasharray="8,5"/>
+      ${real.length>1?`<path d="${path(real)}" fill="none" stroke="#16a34a" stroke-width="3.2" stroke-linejoin="round"/>`:""}
+      ${real.map(p=>`<circle cx="${X(p.t)}" cy="${Y(p.pct)}" r="3.6" fill="#16a34a"><title>${fmt(dia(p.t))}: ${nf(p.pct)}% · ${money(p.v)}</title></circle>`).join("")}
+      ${hoje>=0&&hoje<=d.fim?`<line x1="${X(hoje)}" y1="${PT}" x2="${X(hoje)}" y2="${H-PB}" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5,4"/>
+        <text x="${X(hoje)+4}" y="${PT+11}" font-size="10.5" font-weight="700" fill="#dc2626">hoje</text>`:""}
+      ${[0,.25,.5,.75,1].map(f=>`<text x="${X(d.fim*f)}" y="${H-16}" font-size="10.5" fill="#64748b" text-anchor="middle">${fmt(dia(d.fim*f))}</text>`).join("")}
+    </svg>
+    <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px">
+      <span><b style="color:#1792C0">╌╌</b> Previsto — desenhado pelo cronograma que você montou (não é reta)</span>
+      <span><b style="color:#16a34a">━━</b> Real — acumulado dos lançamentos da equipe</span>
+    </div>
+    <div class="msg info" style="margin-top:14px">
+      A curva prevista muda quando você <b>ajusta durações ou vínculos na aba Cronograma</b>.
+      Se as duas se afastam, a diferença em reais aparece no cartão <b>Desvio</b> — é o quanto de obra
+      deixou de ser feito (ou foi adiantado) em relação ao plano.
+    </div>`;
 }
+
 async function historico(){
   const host=document.getElementById("abaHist");
   const {data}=await sb.from("obra_avancos").select("*").eq("obra_id",OBRA.id).order("criado_em",{ascending:false}).limit(200);
