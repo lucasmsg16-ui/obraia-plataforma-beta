@@ -322,9 +322,36 @@ function lerPlanilha(inp){
   };
   fr.readAsArrayBuffer(f);
 }
-function _palpite(cab, chaves){
-  for(let i=0;i<cab.length;i++){ const c=_norm(cab[i]); if(chaves.some(k=>c.includes(k))) return i; }
-  return -1;
+// ─────────────────────────────────────────────────────────────────────────────
+// COLUNA DE VALOR: o erro mais caro da importação (2026-08-05)
+// Planilha de obra quase sempre traz DOIS valores por serviço: sem BDI e com BDI
+// ("TOTAL", "TOTAL C/ BDI", "PREÇO TOTAL", "VALOR COM BDI"…). Pegar a errada não
+// dá erro nenhum — só entrega uma obra 20~30% mais barata do que ela é, e o
+// engenheiro só descobre quando o financeiro não fecha.
+// Duas defesas: (1) a detecção PREFERE a coluna com BDI; (2) o usuário informa o
+// total da planilha dele e o sistema diz qual coluna reproduz aquele número.
+// ─────────────────────────────────────────────────────────────────────────────
+function _palpite(cab, chaves, prefere){
+  let achado = -1;
+  for(let i=0;i<cab.length;i++){
+    const c=_norm(cab[i]);
+    if(!chaves.some(k=>c.includes(k))) continue;
+    if(prefere && prefere.some(k=>c.includes(k))) return i;   // com BDI ganha na hora
+    if(achado<0) achado=i;
+  }
+  return achado;
+}
+const _COM_BDI = ["com bdi","c/ bdi","c/bdi","com b.d.i","incl bdi","c/ b.d.i","total geral","final"];
+// soma de cada coluna numérica candidata — serve para o usuário reconhecer a dele
+function _somasColunas(){
+  const m=_lerMap(); const sums={};
+  PLAN.cab.forEach((h,i)=>{
+    if(i===m.qtd) return;
+    let s=0, n=0;
+    PLAN.corpo.forEach(L=>{ const v=_n(L[i]); if(v){ s+=v; n++; } });
+    if(n>=3 && s>0) sums[i]={cab:h||("Coluna "+(i+1)), soma:s, linhas:n};
+  });
+  return sums;
 }
 function mapear(){
   const cab = PLAN.cab;
@@ -334,8 +361,8 @@ function mapear(){
     desc: _palpite(cab, ["descri","servic","discrimina","especific"]),
     un:   _palpite(cab, ["unid","und","un."]),
     qtd:  _palpite(cab, ["quant","qtd"]),
-    pu:   _palpite(cab, ["unitario","unit","p.unit","preco unit","valor unit"]),
-    tot:  _palpite(cab, ["total","valor total","preco total","subtotal"]),
+    pu:   _palpite(cab, ["unitario","unit","p.unit","preco unit","valor unit"], _COM_BDI),
+    tot:  _palpite(cab, ["total","valor total","preco total","subtotal"], _COM_BDI),
   };
   const opt = (sel,i)=>cab.map((c,k)=>`<option value="${k}"${k===i?" selected":""}>${esc(c||("Coluna "+(k+1)))}</option>`).join("");
   const d=document.createElement("div"); d.className="modal";
@@ -352,6 +379,12 @@ function mapear(){
       <div><label>Preço unitário</label><select id="mPu"><option value="-1">— não tem —</option>${opt("pu",p.pu)}</select></div>
       <div><label>Valor total</label><select id="mTot"><option value="-1">— calcular —</option>${opt("tot",p.tot)}</select></div>
     </div>
+    <div class="row" style="grid-template-columns:1fr auto;align-items:end;gap:10px;margin:12px 0 4px">
+      <div><label>💰 Total da obra conforme a SUA planilha <span style="font-weight:400;color:var(--muted)">— confere se pegamos a coluna certa</span></label>
+        <input id="mEsperado" placeholder="Ex.: 1.284.377,52" oninput="previa()"></div>
+      <button class="btn btn-out" onclick="acharColuna()">Qual coluna dá esse total?</button>
+    </div>
+    <div id="bdiMsg"></div>
     <div class="msg info" style="margin:10px 0">
       Linhas <b>sem quantidade e sem valor</b> viram <b>etapas</b> (títulos), não serviços — é assim que a planilha
       de obra costuma ser montada. Confira na prévia abaixo se ficou certo.
@@ -384,9 +417,10 @@ function _extrair(){
     // etapa = linha sem quantidade e sem valor (título), ou item de 1º nível
     const ehEtapa = (!qtd && !tot) || (item && /^\d+$/.test(item) && !qtd);
     if(ehEtapa){ fase=desc.slice(0,120); return; }
+    const k = 1 + (Number(PLAN.bdi)||0)/100;      // BDI informado, quando a planilha não traz
     out.push({ item, fase, codigo:String(cel(m.cod)||"").trim()||null,
       descricao:desc.slice(0,400), unidade:String(cel(m.un)||"").trim().toUpperCase()||null,
-      quantidade:qtd, preco:pu||(qtd?tot/qtd:0), valor:Math.round(tot*100)/100 });
+      quantidade:qtd, preco:(pu||(qtd?tot/qtd:0))*k, valor:Math.round(tot*k*100)/100 });
   });
   return out;
 }
@@ -403,17 +437,81 @@ function previa(){
       <td class="num">${money(i.valor)}</td></tr>`).join("")}
     ${its.length>60?`<tr><td colspan="5" style="text-align:center;color:var(--muted);font-size:12px">…e mais ${its.length-60} serviço(s)</td></tr>`:""}
     </tbody></table>`;
-  msg("mapMsg",`<b>${its.length} serviço(s)</b> em <b>${fases.length} etapa(s)</b> · total ${money(total)}`+
+  msg("mapMsg",`<b>${its.length} serviço(s)</b> em <b>${fases.length} etapa(s)</b> · total lido: <b>${money(total)}</b>`+
     (semValor?` · <b style="color:#b45309">${semValor} sem valor</b> (entram, mas não pesam no avanço financeiro)`:""),
     semValor?"info":"ok");
+  conferirTotal(total);
+}
+// Compara o que foi lido com o total que o usuário conhece da planilha dele.
+function conferirTotal(lido){
+  const el=document.getElementById("mEsperado"); if(!el) return;
+  const esp=_n(el.value);
+  if(!esp){ msg("bdiMsg","",""); return; }
+  const dif=(lido-esp)/esp*100;
+  if(Math.abs(dif)<=0.5){
+    msg("bdiMsg",`✓ <b>Bate com a sua planilha</b> (${money(lido)}). Pode importar com segurança.`,"ok");
+    return;
+  }
+  const fator=esp/lido;
+  const bdiImplicito=(fator-1)*100;
+  const faltaBdi = fator>1.01 && fator<1.60;   // faixa de BDI de obra civil
+  msg("bdiMsg",
+    `⚠ <b>Não bate.</b> Lido ${money(lido)} × informado ${money(esp)} — diferença de <b>${nf(Math.abs(dif))}%</b>.`+
+    (faltaBdi
+      ? `<br>A razão entre os dois é <b>${nf(bdiImplicito)}%</b>, que é exatamente a cara de um <b>BDI não incluído</b>.
+         Provavelmente foi escolhida a coluna <b>sem BDI</b>.
+         <div style="margin-top:8px;display:flex;gap:7px;flex-wrap:wrap">
+           <button class="btn btn-out" style="padding:5px 11px;font-size:12.5px" onclick="acharColuna()">Procurar a coluna com BDI</button>
+           <button class="btn btn-out" style="padding:5px 11px;font-size:12.5px" onclick="aplicarBDI(${bdiImplicito.toFixed(4)})">Aplicar BDI de ${nf(bdiImplicito)}% aos valores</button>
+         </div>`
+      : `<br>Confira a coluna de <b>Valor total</b> — pode ser outra. Clique em <b>"Qual coluna dá esse total?"</b>.`),
+    "err");
+}
+// Procura, entre todas as colunas numéricas, a que reproduz o total informado.
+function acharColuna(){
+  const esp=_n((document.getElementById("mEsperado")||{}).value);
+  if(!esp){ msg("bdiMsg","Informe primeiro o total da sua planilha no campo acima.","info"); return; }
+  const sums=_somasColunas();
+  const cand=Object.keys(sums).map(i=>({i:+i,...sums[i],dif:Math.abs(sums[i].soma-esp)/esp*100}))
+    .sort((a,b)=>a.dif-b.dif);
+  if(!cand.length){ msg("bdiMsg","Não encontrei colunas numéricas para comparar.","err"); return; }
+  const bom=cand.filter(c=>c.dif<=1);
+  msg("bdiMsg", bom.length
+    ? `✓ A coluna <b>"${esc(bom[0].cab)}"</b> soma ${money(bom[0].soma)} — é a que bate com a sua planilha.
+       <div style="margin-top:8px"><button class="btn btn-blue" style="padding:5px 12px;font-size:12.5px"
+         onclick="usarColuna(${bom[0].i})">Usar esta coluna como Valor total</button></div>`
+    : `Nenhuma coluna bate exatamente. As três mais próximas:<br>`+
+      cand.slice(0,3).map(c=>`• <b>${esc(c.cab)}</b>: ${money(c.soma)} (${nf(c.dif)}% de diferença)
+        <button class="btn btn-out" style="padding:2px 8px;font-size:11.5px;margin-left:5px" onclick="usarColuna(${c.i})">usar</button>`).join("<br>"),
+    bom.length?"ok":"info");
+}
+function usarColuna(i){ document.getElementById("mTot").value=String(i); previa(); }
+// Sem coluna com BDI na planilha: aplica o percentual sobre os valores lidos.
+function aplicarBDI(p){
+  const v=prompt("BDI a aplicar sobre os valores lidos (%):", nf(p).replace(".",""));
+  if(v===null) return;
+  const n=_n(v);
+  if(!(n>0&&n<100)){ msg("bdiMsg","Informe um BDI entre 0 e 100%.","err"); return; }
+  PLAN.bdi=n; previa();
+  msg("bdiMsg",`BDI de <b>${nf(n)}%</b> aplicado sobre os valores da planilha. Confira o total acima.`,"ok");
 }
 async function importarPlan(){
   const its=_extrair();
   if(!its.length){ msg("mapMsg","Não há serviços para importar.","err"); return; }
+  const total=its.reduce((s,i)=>s+i.valor,0);
+  const esp=_n((document.getElementById("mEsperado")||{}).value);
+  // trava final: se o usuário informou o total e ele não bate, não deixa passar calado
+  if(esp && Math.abs(total-esp)/esp > 0.005){
+    if(!confirm(`ATENÇÃO — o total não bate com a sua planilha.\n\n`+
+      `Lido: R$ ${nf(total)}\nSua planilha: R$ ${nf(esp)}\nDiferença: ${nf(Math.abs(total-esp)/esp*100)}%\n\n`+
+      `Isso costuma ser coluna sem BDI. Importar assim deixa a obra mais barata do que ela é, `+
+      `e o avanço financeiro sairá errado.\n\nOK = importar mesmo assim · Cancelar = corrigir a coluna`)) return;
+  }
   const nome=prompt("Nome da obra:", PLAN.nomeArq.replace(/\.(xlsx?|csv)$/i,"")) || "";
   if(!nome.trim()) return;
   const {data:o,error}=await sb.from("obras").insert({
-    dono:USER.id, nome:nome.trim().slice(0,160), data_inicio:new Date().toISOString().slice(0,10)
+    dono:USER.id, nome:nome.trim().slice(0,160), bdi:Number(PLAN.bdi)||0,
+    data_inicio:new Date().toISOString().slice(0,10)
   }).select().single();
   if(error){ msg("mapMsg","Falha ao criar a obra: "+esc(error.message),"err"); return; }
   await sb.from("obra_membros").insert({obra_id:o.id,usuario:USER.id,papel:"dono",email:USER.email});
