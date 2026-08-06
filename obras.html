@@ -93,6 +93,27 @@ td.num{text-align:right;white-space:nowrap}
 .via .btn{align-self:flex-start}
 @media(max-width:720px){ th{position:static} .kpi .v{font-size:20px} }
 .gx text{dominant-baseline:middle}
+.av{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.av .u{font-size:11.5px;color:var(--muted);font-weight:600}
+.qtd-in{width:92px;text-align:right;padding:5px 7px;font-size:13px}
+.pctcalc{font-size:12px;font-weight:800;color:var(--blue);background:#eaf6fb;border-radius:20px;padding:2px 9px}
+.avsub{font-size:10.5px;color:var(--muted);margin-top:3px}
+.lixo{background:#fff;border:1.5px solid var(--border);color:#94a3b8;border-radius:8px;width:36px;height:36px;
+  font-size:15px;cursor:pointer;flex:none;font-family:inherit;transition:.15s}
+.lixo:hover{border-color:var(--red);color:var(--red);background:#fef2f2}
+.perigo{border:1px solid #fecaca;background:#fef2f2;border-radius:10px;padding:14px 16px;font-size:13.5px;color:#7f1d1d;margin:14px 0}
+.perigo b{color:#991b1b}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover{background:#b91c1c}
+.btn-red:disabled{background:#fca5a5}
+/* trilha de meses a preencher (obra que começou antes da adesão) */
+.trilha{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.trilha button{border:1.5px solid var(--border);background:#fff;border-radius:20px;padding:6px 14px;font-size:12.5px;
+  font-weight:600;cursor:pointer;font-family:inherit;color:var(--navy)}
+.trilha button:hover{border-color:var(--blue);color:var(--blue)}
+.trilha button.feito{background:#f0fdf4;border-color:#bbf7d0;color:#166534}
+.trilha button.feito::before{content:"✓ "}
+.trilha button.atual{border-color:var(--blue);background:#eaf6fb;color:var(--blue)}
 /* ═══ COMPETÊNCIA (data-base) ═══════════════════════════════════════════════
    Um seletor de MÊS, não de dia. Medição de obra é mensal; pedir dia a dia
    burocratiza sem ganho. O mês escolhido vira a "data-base" de TODA a tela —
@@ -206,6 +227,7 @@ td.num{text-align:right;white-space:nowrap}
           </div>
           <button class="btn btn-out" id="btnHoje" style="padding:7px 13px;font-size:12.5px" onclick="compHoje()">Hoje</button>
         </div>
+        <div id="trilha"></div>
         <div id="avisoData"></div>
         <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
           <input id="filtro" placeholder="Filtrar serviço…" style="max-width:260px" oninput="pintarItens()">
@@ -227,8 +249,8 @@ td.num{text-align:right;white-space:nowrap}
         <div style="overflow:auto;max-height:62vh">
           <table>
             <thead><tr>
-              <th>Serviço</th><th class="num">Qtd</th><th class="num">Valor</th>
-              <th style="width:150px">% executado</th><th class="num">Executado</th><th>Situação</th>
+              <th>Serviço</th><th class="num">Qtd do contrato</th><th class="num">Valor</th>
+              <th style="width:210px">Executado</th><th class="num">R$ executado</th><th>Situação</th>
             </tr></thead>
             <tbody id="tbItens"></tbody>
           </table>
@@ -251,6 +273,7 @@ let USER=null, OBRA=null, ITENS=[], CANAL=null, AVANCOS=[], COMP=null;
 
 const nf=v=>(Number(v)||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const money=v=>"R$ "+nf(v);
+const nf0=v=>(Number(v)||0).toLocaleString("pt-BR",{maximumFractionDigits:2});
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const msg=(el,txt,tipo)=>{const e=document.getElementById(el); if(!e)return; e.innerHTML=txt?`<div class="msg ${tipo||"info"}">${txt}</div>`:"";};
 
@@ -276,15 +299,16 @@ async function carregarLista(){
   host.innerHTML=data.map(o=>{
     const p=Number(o.pct_fisico)||0;
     const q=o.ultimo_lancamento? new Date(o.ultimo_lancamento).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "sem lançamento";
-    return `<div class="obra-card" onclick="abrirObra('${o.id}')">
-      <div style="flex:1;min-width:0">
+    return `<div class="obra-card">
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="abrirObra('${o.id}')">
         <div class="nm">${esc(o.nome)}</div>
         <div class="mt">${o.itens} serviço(s) · ${money(o.valor_total)} · último lançamento: ${q}</div>
       </div>
-      <div style="text-align:right;min-width:120px">
+      <div style="text-align:right;min-width:120px;cursor:pointer" onclick="abrirObra('${o.id}')">
         <div style="font-weight:800;font-size:17px;color:${p>=100?"var(--green)":"var(--navy)"}">${nf(p)}%</div>
         <div class="bar ${p>=100?"done":""}"><i style="width:${Math.min(100,p)}%"></i></div>
       </div>
+      <button class="lixo" title="Excluir esta obra" onclick="event.stopPropagation();confirmarExcluir('${o.id}','${esc(o.nome).replace(/'/g,"\\'")}',${o.itens||0})">🗑</button>
     </div>`;
   }).join("");
 }
@@ -675,6 +699,57 @@ async function importarPlan(){
   abrirObra(o.id);
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// EXCLUIR OBRA — irreversível, então exige digitar o nome
+// Botão de lixeira que apaga na hora é como se perde meses de medição. Aqui o
+// usuário precisa escrever o nome da obra: quem está distraído não consegue.
+// A ordem importa: filhos antes do pai, porque não dá para garantir que o banco
+// tenha ON DELETE CASCADE em todas as tabelas.
+// ═════════════════════════════════════════════════════════════════════════════
+function confirmarExcluir(id,nome,itens){
+  const d=document.createElement("div"); d.className="modal";
+  d.innerHTML=`<div>
+    <h2 style="margin:0 0 4px;font-size:19px;color:var(--navy)">Excluir "${esc(nome)}"</h2>
+    <p class="sub" style="margin-bottom:0">Esta ação não tem volta.</p>
+    <div class="perigo">
+      Vai apagar <b>de vez</b>: os ${itens} serviços importados, <b>todo o histórico de medição</b>
+      (inclusive os meses retroativos que você preencheu), o cronograma ajustado, as previsões
+      e o acesso da equipe. Não existe lixeira — não dá para recuperar depois.
+    </div>
+    <label>Para confirmar, digite o nome da obra:</label>
+    <input id="exNome" placeholder="${esc(nome)}" autocomplete="off" data-nome="${esc(nome)}"
+      oninput="document.getElementById('btnEx').disabled = this.value.trim()!==this.dataset.nome">
+    <div id="exMsg"></div>
+    <div style="display:flex;gap:9px;margin-top:16px">
+      <button class="btn btn-red" id="btnEx" disabled onclick="excluirObra('${id}',this)">Excluir definitivamente</button>
+      <button class="btn btn-out" onclick="this.closest('.modal').remove()">Cancelar</button>
+    </div></div>`;
+  document.body.appendChild(d);
+  setTimeout(()=>{const e=document.getElementById("exNome"); if(e) e.focus();},50);
+}
+async function excluirObra(id,btn){
+  btn.disabled=true; btn.textContent="Excluindo…";
+  const falha=t=>{ msg("exMsg",t,"err"); btn.disabled=false; btn.textContent="Excluir definitivamente"; };
+  // filhos primeiro
+  for(const tab of ["obra_avancos","obra_itens","obra_membros"]){
+    const {error}=await sb.from(tab).delete().eq("obra_id",id);
+    if(error && !/does not exist|schema cache/i.test(error.message)) return falha("Falha ao limpar "+tab+": "+esc(error.message));
+  }
+  const {data,error}=await sb.from("obras").delete().eq("id",id).select("id");
+  if(error) return falha("Não consegui excluir: "+esc(error.message));
+  // RLS sem política de DELETE não dá erro: apenas não apaga nada. Isso precisa
+  // aparecer, senão o usuário acha que excluiu e a obra reaparece no F5.
+  if(!data||!data.length) return falha(
+    "A obra não foi excluída. Seu usuário não tem permissão de exclusão no banco — "+
+    "só o dono da obra pode excluí-la. Se você <b>é</b> o dono, falta a política de DELETE no Supabase "+
+    "(rode o SQL <code>obras-excluir.sql</code> que está na pasta do projeto).");
+  const m=document.querySelector(".modal"); if(m) m.remove();
+  if(OBRA&&OBRA.id===id){ OBRA=null; verLista(); }
+  await carregarLista();
+  msg("listaMsg","Obra excluída.","ok");
+  setTimeout(()=>msg("listaMsg","",""),4000);
+}
+
 // ═══ OBRA ═══
 async function abrirObra(id){
   const {data:o,error}=await sb.from("obras").select("*").eq("id",id).single();
@@ -707,7 +782,7 @@ async function carregarItens(){
   const fases=[...new Set(ITENS.map(i=>i.fase).filter(Boolean))];
   const sel=document.getElementById("fFase");
   sel.innerHTML='<option value="">Todas as fases</option>'+fases.map(f=>`<option>${esc(f)}</option>`).join("");
-  pintarComp(); pintarKPIs(); pintarItens();
+  pintarComp(); pintarTrilha(); pintarKPIs(); pintarItens();
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -841,11 +916,7 @@ function pintarItens(){
         <div style="font-size:11.5px;color:var(--muted)">${esc(i.codigo||"—")}</div>${quem}</td>
       <td class="num">${nf(i.quantidade)}<div style="font-size:11px;color:var(--muted)">${esc(i.unidade||"")}</div></td>
       <td class="num">${money(i.valor)}</td>
-      <td><div style="display:flex;align-items:center;gap:6px">
-        <input class="pct-in" type="number" min="0" max="100" step="1" value="${p}" ${fut?"disabled title='Mês futuro — use a aba Previsão'":""}
-               onchange="lancar('${i.id}',this.value,this)"> %
-        ${dl?`<span class="dlt ${dl>0?"up":"dn"}" title="variação nesta competência">${dl>0?"+":""}${nf(dl)}</span>`:""}
-      </div><div class="bar" style="margin-top:5px"><i style="width:${Math.min(100,p)}%"></i></div></td>
+      <td>${_celulaAvanco(i,p,dl,fut)}</td>
       <td class="num">${money(i.valor_executado)}</td>
       <td><span class="chip ${s}">${lbl}</span></td>
     </tr>`;
@@ -914,6 +985,50 @@ function pintarComp(){
     É assim que se preenche o histórico de uma obra que já estava andando.
     <button class="btn btn-out" style="padding:3px 10px;font-size:12px;margin-left:8px" onclick="compHoje()">Voltar para hoje</button></div>`;
 }
+// ═════════════════════════════════════════════════════════════════════════════
+// TRILHA DE ADESÃO — obra que já estava andando quando o usuário chegou
+// Caso real: assina hoje, a obra começou em junho. Saber que "dá para voltar o
+// mês" não basta — ele precisa ver QUANTOS meses faltam e quais já preencheu.
+// A trilha mostra cada mês do início da obra até hoje, marca de verde os que já
+// têm lançamento e leva direto ao que falta. Vira uma lista de tarefas curta,
+// em vez de uma tela em branco com um seletor.
+// ═════════════════════════════════════════════════════════════════════════════
+function _mesesAteHoje(){
+  const ini=_compInicio(), hoje=_compHoje(), out=[];
+  let [a,m]=ini.split("-").map(Number);
+  while(true){ const c=a+"-"+String(m).padStart(2,"0");
+    out.push(c); if(c===hoje||out.length>60) break;
+    m++; if(m>12){m=1;a++;} }
+  return out;
+}
+function _mesTemLancamento(c){
+  const [a,m]=c.split("-").map(Number);
+  const de=new Date(a,m-1,1).toISOString().slice(0,10), ate=_fimDoMes(c);
+  return AVANCOS.some(x=>x.data_ref>=de&&x.data_ref<=ate);
+}
+function pintarTrilha(){
+  const host=document.getElementById("trilha"); if(!host) return;
+  const meses=_mesesAteHoje();
+  // só aparece quando faz sentido: obra que começou antes do mês corrente
+  if(meses.length<2){ host.innerHTML=""; return; }
+  const feitos=meses.filter(_mesTemLancamento).length;
+  const faltam=meses.length-feitos;
+  if(faltam===0){ host.innerHTML=""; return; }   // tudo preenchido, some da tela
+  const atual=compAtual();
+  host.innerHTML=`<div class="msg info" style="margin:0 0 12px">
+    🗓️ <b>Esta obra começou antes de você entrar na plataforma.</b>
+    São ${meses.length} meses de ${_compRotulo(meses[0])} até agora e
+    <b>${faltam} ainda sem nenhum lançamento</b>. Clique num mês e marque o que já tinha sido executado
+    até o fim dele — o acumulado de cada mês, não só o que andou.
+    <div class="trilha">${meses.map(c=>{
+      const ok=_mesTemLancamento(c);
+      const [,mm]=c.split("-");
+      return `<button class="${ok?"feito":""} ${c===atual?"atual":""}" onclick="irMes('${c}')"
+        title="${_compRotulo(c)}">${MESES_PT[Number(mm)-1].slice(0,3)}/${c.slice(2,4)}</button>`;
+    }).join("")}</div></div>`;
+}
+function irMes(c){ COMP=c; pintarComp(); pintarKPIs(); pintarItens(); pintarTrilha();
+  const t=document.getElementById("compBox"); if(t) t.scrollIntoView({behavior:"smooth",block:"center"}); }
 function irPrevisao(){
   const bs=[...document.querySelectorAll(".tabs button")];
   const b=bs.find(x=>x.textContent.trim()==="Previsão"); if(b) aba("prev",b);
@@ -925,6 +1040,64 @@ async function alternarTipo(id){
   const {error}=await sb.from("obra_itens").update({tipo_custo:novo}).eq("id",id);
   if(error){ msg("itensMsg","Não consegui alterar: "+esc(error.message),"err"); return; }
   carregarItens();
+}
+// ═════════════════════════════════════════════════════════════════════════════
+// AVANÇO POR QUANTITATIVO — como se mede obra de verdade
+// Ninguém vai ao canteiro e conclui "a alvenaria está em 42%". Mede-se
+// "levantei 214 dos 510 m²" — e o percentual é consequência. Pedir o % obriga o
+// engenheiro a fazer a conta de cabeça, e é aí que entra erro na medição.
+// O banco continua guardando %, que é o que serve para somar serviços de
+// unidades diferentes; a conversão acontece aqui, na entrada.
+// Serviço sem quantidade (verba, VB, taxa) não tem o que medir: cai no % mesmo.
+// ═════════════════════════════════════════════════════════════════════════════
+const _UN_SEM_QTD=/^(vb|verba|un|und|unid|cj|conj|gl|global|mes|mês|m[eê]s|%)$/i;
+function _temQtd(i){
+  const q=Number(i.quantidade)||0;
+  if(q<=0) return false;
+  // "1,00 VB" não é quantitativo mensurável — medir 0,37 de uma verba não diz nada
+  if(_UN_SEM_QTD.test(String(i.unidade||"").trim()) && q<=1) return false;
+  return true;
+}
+// aceita "1.234,56", "1234.56", "1234,56" e "1234"
+function _numBR(v){
+  let t=String(v==null?"":v).trim().replace(/\s/g,"");
+  if(!t) return NaN;
+  if(t.includes(",")) t=t.replace(/\./g,"").replace(",",".");
+  else if((t.match(/\./g)||[]).length>1) t=t.replace(/\./g,"");
+  return parseFloat(t);
+}
+function _celulaAvanco(i,p,dl,fut){
+  const q=Number(i.quantidade)||0, un=esc(i.unidade||"");
+  const barra=`<div class="bar" style="margin-top:6px"><i style="width:${Math.min(100,p)}%"></i></div>`;
+  const delta=dl?`<span class="dlt ${dl>0?"up":"dn"}" title="avanço nesta competência">${dl>0?"+":""}${nf(dl)} p.p.</span>`:"";
+  const trava=fut?"disabled title='Mês futuro — use a aba Previsão'":"";
+  if(!_temQtd(i)){
+    return `<div class="av"><input class="pct-in" type="number" min="0" max="100" step="1" value="${nf0(p)}" ${trava}
+        onchange="lancar('${i.id}',this.value,this)"><span class="u">%</span>${delta}</div>
+      <div class="avsub">serviço sem quantitativo — informe o percentual</div>${barra}`;
+  }
+  const feito=q*p/100;
+  return `<div class="av">
+      <input class="qtd-in" type="text" inputmode="decimal" value="${nf(feito)}" ${trava}
+        onchange="lancarQtd('${i.id}',this.value,this)"
+        title="Quanto já foi executado, na unidade da planilha">
+      <span class="u">${un}</span>
+      <span class="pctcalc" title="calculado a partir do quantitativo">${nf(p)}%</span>${delta}</div>
+    <div class="avsub">de ${nf(q)} ${un} · falta ${nf(Math.max(0,q-feito))} ${un}</div>${barra}`;
+}
+// Lança a partir da QUANTIDADE executada acumulada.
+async function lancarQtd(itemId,valor,el){
+  const it=ITENS.find(x=>x.id===itemId); if(!it) return;
+  const q=Number(it.quantidade)||0;
+  const v=_numBR(valor);
+  if(!isFinite(v)||v<0){ alert("Informe a quantidade executada — por exemplo 214,5"); pintarItens(); return; }
+  if(v>q*1.0001){
+    if(!confirm(`Você informou ${nf(v)} ${it.unidade||""}, acima dos ${nf(q)} do contrato.\n\n`+
+      `Se a obra executou mais do que o previsto, isso normalmente vira aditivo — o sistema vai registrar 100% `+
+      `e o excedente NÃO entra no valor medido.\n\nRegistrar como concluído (100%)?`)){ pintarItens(); return; }
+  }
+  const pct = q>0 ? Math.min(100, v/q*100) : 0;
+  await lancar(itemId, Math.round(pct*100)/100, el);
 }
 // ═══ LANÇAMENTO — insere no log, nunca sobrescreve ═══
 async function lancar(itemId,valor,el){
@@ -1557,6 +1730,8 @@ function previsao(){
     ${!passou&&viavel!=null&&viavel>1.5?`<div class="alertas"><div class="al a"><span class="ic">⚠</span><div>
       Esta meta é <b>${viavel.toFixed(1)}× o ritmo que a obra vem tendo</b> (${money(capac)}/mês).
       Planejar acima da capacidade real só adia a conversa difícil — ou entra reforço, ou a meta precisa ser outra.</div></div></div>`:""}
+    ${_desembolso(mes)}
+    <h3 style="font-size:14px;color:var(--navy);margin:22px 0 8px">Meta por serviço — ${_compRotulo(mes)}</h3>
     <div style="overflow:auto;max-height:56vh"><table>
       <thead><tr><th>Serviço</th><th class="num">Valor</th>
         <th class="num">Início do mês</th><th style="width:130px">Meta no fim do mês</th>
@@ -1579,6 +1754,65 @@ function previsao(){
     <div style="font-size:11.5px;color:var(--muted);margin-top:10px">
       A meta já vem preenchida pelo cronograma — mexa só no que for diferente. Nada aqui altera a medição:
       quando o mês chegar, você lança o avanço real na aba <b>Serviços</b> e volta aqui para comparar.
+    </div>`;
+}
+// ═════════════════════════════════════════════════════════════════════════════
+// DESEMBOLSO PREVISTO — a pergunta de caixa, não de cronograma
+// "Quanto vou ter que desembolsar nos próximos meses?" é o que decide se a obra
+// para por falta de dinheiro. A resposta sai da mesma curva do cronograma, mas
+// apresentada em REAIS POR MÊS, com o acumulado ao lado — e o mês que você está
+// planejando usa a SUA meta, não a do cronograma, quando você ajustou alguma.
+// ═════════════════════════════════════════════════════════════════════════════
+function _desembolso(mesFoco){
+  const d=_calcCrono(); if(!d) return "";
+  const hojeC=_compHoje();
+  const grade=_mesesGrade().filter(m=>m.chave>=hojeC);
+  if(!grade.length) return "";
+  const plano=_plano();
+  // valor acumulado que o plano do usuário prevê ao fim de um mês (se houver plano)
+  const acumPlano=c=>{ const pl=plano[c]; if(!pl) return null;
+    return ITENS.reduce((sm,i)=>sm+(Number(i.valor)||0)*Math.min(100,Math.max(0,pl[i.id]||0))/100,0); };
+  let ant=(()=>{ const its=itensEm(_hoje()); return its.reduce((sm,i)=>sm+Number(i.valor_executado||0),0); })();
+  const antIni=ant;
+  const linhas=grade.slice(0,12).map(m=>{
+    const doPlano=acumPlano(m.chave);
+    const ac = doPlano!=null ? Math.max(ant,doPlano) : _pvEm(d,m.tFim);
+    const mes=Math.max(0,ac-ant); ant=ac;
+    return {...m, mes, ac, fonte: doPlano!=null?"plano":"cronograma"};
+  });
+  const maxM=Math.max(1,...linhas.map(l=>l.mes));
+  const total12=linhas.reduce((s,l)=>s+l.mes,0);
+  const prox=linhas[0], prox3=linhas.slice(0,3).reduce((s,l)=>s+l.mes,0);
+  return `
+    <h3 style="font-size:14px;color:var(--navy);margin:20px 0 4px">Desembolso previsto</h3>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">
+      Quanto de obra precisa ser paga em cada mês daqui pra frente. Sai do cronograma —
+      e do <b>seu plano</b> nos meses em que você ajustou as metas.</p>
+    <div class="kpis" style="margin-bottom:10px">
+      <div class="kpi"><div class="l">${prox.rotulo.replace(/^./,x=>x.toUpperCase())}</div>
+        <div class="v" style="font-size:19px">${money(prox.mes)}</div><div class="s">próximo mês</div></div>
+      <div class="kpi"><div class="l">Próximos 3 meses</div><div class="v" style="font-size:19px">${money(prox3)}</div>
+        <div class="s">média ${money(prox3/3)}/mês</div></div>
+      <div class="kpi"><div class="l">Saldo a desembolsar</div><div class="v" style="font-size:19px">${money(d.total-antIni)}</div>
+        <div class="s">${nf(d.total>0?(d.total-antIni)/d.total*100:0)}% do contrato</div></div>
+    </div>
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:10px;background:#fff"><table>
+      <thead><tr><th>Mês</th><th class="num">A desembolsar</th><th style="width:190px">Peso</th>
+        <th class="num">Acumulado</th><th class="num">% da obra</th><th>Base</th></tr></thead>
+      <tbody>${linhas.map(l=>`<tr${l.chave===mesFoco?' style="background:#eaf6fb"':""}>
+        <td><b>${l.rotulo.replace(/^./,x=>x.toUpperCase())}</b></td>
+        <td class="num"><b>${money(l.mes)}</b></td>
+        <td><div class="bar"><i style="width:${l.mes/maxM*100}%;background:${l.chave===mesFoco?"var(--navy)":"var(--blue)"}"></i></div></td>
+        <td class="num" style="color:var(--muted)">${money(l.ac)}</td>
+        <td class="num">${nf(d.total>0?l.ac/d.total*100:0)}%</td>
+        <td><span class="chip ${l.fonte==="plano"?"p":"z"}">${l.fonte}</span></td></tr>`).join("")}
+      </tbody>
+      <tfoot><tr><td><b>Total dos ${linhas.length} meses</b></td><td class="num"><b>${money(total12)}</b></td>
+        <td colspan="4"></td></tr></tfoot>
+    </table></div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:8px">
+      <span class="chip z">cronograma</span> mês ainda sem plano seu — usa a distribuição do cronograma ·
+      <span class="chip p">plano</span> mês em que você definiu metas na tabela abaixo.
     </div>`;
 }
 function prevMeta(id,v){
