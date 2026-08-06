@@ -703,8 +703,19 @@ async function importarPlan(){
 // EXCLUIR OBRA — irreversível, então exige digitar o nome
 // Botão de lixeira que apaga na hora é como se perde meses de medição. Aqui o
 // usuário precisa escrever o nome da obra: quem está distraído não consegue.
-// A ordem importa: filhos antes do pai, porque não dá para garantir que o banco
-// tenha ON DELETE CASCADE em todas as tabelas.
+//
+// UM ÚNICO DELETE, DE PROPÓSITO.
+// A tentação é apagar os filhos primeiro (avanços, itens, membros) e depois a
+// obra. É errado aqui, e perigoso: a política de obra_itens permite a QUEM PODE
+// EDITAR — o que inclui membro convidado —, enquanto a de obras exige ser o
+// dono. Apagando em etapas, um membro conseguiria limpar todos os serviços e só
+// então ser barrado na obra: sobraria a obra de outra pessoa destruída pela
+// metade, sem volta.
+// Apagando só a obra, a permissão é avaliada UMA vez, no lugar certo: ou o dono
+// apaga tudo, ou nada acontece. As chaves estrangeiras estão com ON DELETE
+// CASCADE (verificado no banco), então itens, avanços e membros caem junto —
+// e o histórico de medição continua impossível de apagar isoladamente, que é a
+// garantia que faz o log servir de prova.
 // ═════════════════════════════════════════════════════════════════════════════
 function confirmarExcluir(id,nome,itens){
   const d=document.createElement("div"); d.className="modal";
@@ -715,6 +726,7 @@ function confirmarExcluir(id,nome,itens){
       Vai apagar <b>de vez</b>: os ${itens} serviços importados, <b>todo o histórico de medição</b>
       (inclusive os meses retroativos que você preencheu), o cronograma ajustado, as previsões
       e o acesso da equipe. Não existe lixeira — não dá para recuperar depois.
+      Se a ideia é só tirar a obra da sua lista, saia dela em <b>Equipe</b> em vez de excluir.
     </div>
     <label>Para confirmar, digite o nome da obra:</label>
     <input id="exNome" placeholder="${esc(nome)}" autocomplete="off" data-nome="${esc(nome)}"
@@ -730,19 +742,13 @@ function confirmarExcluir(id,nome,itens){
 async function excluirObra(id,btn){
   btn.disabled=true; btn.textContent="Excluindo…";
   const falha=t=>{ msg("exMsg",t,"err"); btn.disabled=false; btn.textContent="Excluir definitivamente"; };
-  // filhos primeiro
-  for(const tab of ["obra_avancos","obra_itens","obra_membros"]){
-    const {error}=await sb.from(tab).delete().eq("obra_id",id);
-    if(error && !/does not exist|schema cache/i.test(error.message)) return falha("Falha ao limpar "+tab+": "+esc(error.message));
-  }
   const {data,error}=await sb.from("obras").delete().eq("id",id).select("id");
   if(error) return falha("Não consegui excluir: "+esc(error.message));
-  // RLS sem política de DELETE não dá erro: apenas não apaga nada. Isso precisa
-  // aparecer, senão o usuário acha que excluiu e a obra reaparece no F5.
+  // RLS que barra um DELETE não devolve erro: simplesmente apaga zero linhas.
+  // Sem conferir isso, a tela diria "excluída" e ela voltaria no próximo F5.
   if(!data||!data.length) return falha(
-    "A obra não foi excluída. Seu usuário não tem permissão de exclusão no banco — "+
-    "só o dono da obra pode excluí-la. Se você <b>é</b> o dono, falta a política de DELETE no Supabase "+
-    "(rode o SQL <code>obras-excluir.sql</code> que está na pasta do projeto).");
+    "A obra <b>não</b> foi excluída — nada foi alterado. Só o dono pode excluir uma obra, "+
+    "e você está como convidado nesta. Peça a quem criou, ou saia dela em <b>Equipe</b>.");
   const m=document.querySelector(".modal"); if(m) m.remove();
   if(OBRA&&OBRA.id===id){ OBRA=null; verLista(); }
   await carregarLista();
