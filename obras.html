@@ -65,6 +65,9 @@ td.num{text-align:right;white-space:nowrap}
 .chip.p{background:#eaf6fb;color:var(--blue)}
 .chip.c{background:#dcfce7;color:#166534}
 .chip.man{background:#fef3c7;color:#92400e}
+.chip.ind{background:#ede9fe;color:#5b21b6;cursor:pointer}
+.chip.dir{background:#f1f5f9;color:#64748b;cursor:pointer;opacity:.75}
+.chip.ind:hover,.chip.dir:hover{filter:brightness(.94)}
 .vazio{text-align:center;padding:38px 18px;color:var(--muted)}
 .vazio .ic{font-size:44px;margin-bottom:10px}
 .hide{display:none}
@@ -161,14 +164,22 @@ td.num{text-align:right;white-space:nowrap}
         <button onclick="aba('hist',this)">Histórico</button>
       </div>
       <div id="abaServ">
+        <div id="avisoData"></div>
         <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-          <input id="filtro" placeholder="Filtrar serviço…" style="max-width:280px" oninput="pintarItens()">
+          <label style="margin:0;font-weight:600;font-size:12.5px">📅 Data do avanço
+            <input type="date" id="dataRef" style="width:150px;margin-left:5px" onchange="trocarData()"></label>
+          <input id="filtro" placeholder="Filtrar serviço…" style="max-width:260px" oninput="pintarItens()">
           <select id="fFase" style="max-width:200px" onchange="pintarItens()"><option value="">Todas as fases</option></select>
           <select id="fSit" style="max-width:180px" onchange="pintarItens()">
             <option value="">Toda situação</option>
             <option value="z">Não iniciados</option>
             <option value="p">Em andamento</option>
             <option value="c">Concluídos</option>
+          </select>
+          <select id="fTipo" style="max-width:180px" onchange="pintarItens()">
+            <option value="">Direto + indireto</option>
+            <option value="direto">Só custo direto</option>
+            <option value="indireto">Só custo indireto</option>
           </select>
           <button class="btn btn-out" style="margin-left:auto" onclick="addItemManual()">+ Serviço manual</button>
         </div>
@@ -344,6 +355,16 @@ function _palpite(cab, chaves, prefere){
   }
   return achado;
 }
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTO INDIRETO — o que NÃO conta como avanço físico
+// Mobilização fecha 100% no dia 1. Se ela pesa no avanço físico ponderado por
+// custo, a obra marca vários por cento de execução antes do primeiro tijolo.
+// Administração local, canteiro, seguro e taxas são consumidos pelo TEMPO, não
+// pela produção. Eles continuam no financeiro (é dinheiro que sai de verdade),
+// mas ficam fora do % físico. É como o controle de obra separa as duas coisas.
+// ─────────────────────────────────────────────────────────────────────────────
+const _RE_INDIRETO = /(mobilizac|desmobilizac|administrac\w*\s+(local|d[ae]\s+obra|d[ao]\s+contrato)|adm\.?\s*local|canteiro|barracao|almoxarifad|refeitori|vestiari|container|conteiner|placa de obra|tapume|seguro|apolice|\btaxa\b|emolument|\bart\b|\brrt\b|licenc|alvara|vigilanc|seguranca do trabalho|engenheiro residente|mestre de obra|encarregado geral|(ligac|instalac)\w*\s+provisori|energia provisoria|agua e luz|limpeza permanente|equipamento de protecao|\bepi\b|ferramenta)/;
+function _classificaCusto(desc){ return _RE_INDIRETO.test(_norm(desc)) ? "indireto" : "direto"; }
 const _COM_BDI = ["com bdi","c/ bdi","c/bdi","com b.d.i","incl bdi","c/ b.d.i","total geral","final"];
 
 // Classifica as linhas do mesmo jeito que a importação faz. Somar uma coluna
@@ -602,7 +623,8 @@ async function importarPlan(){
   const linhas=its.map((it,i)=>({
     obra_id:o.id, ordem:i, fase:it.fase||null, codigo:it.codigo,
     descricao:it.descricao, unidade:it.unidade, quantidade:it.quantidade,
-    preco_unit:Math.round((it.preco||0)*10000)/10000, valor:it.valor, manual:true
+    preco_unit:Math.round((it.preco||0)*10000)/10000, valor:it.valor, manual:true,
+    tipo_custo:_classificaCusto(it.descricao+' '+(it.fase||''))
   }));
   for(let i=0;i<linhas.length;i+=500){
     const {error:e2}=await sb.from("obra_itens").insert(linhas.slice(i,i+500));
@@ -624,6 +646,8 @@ async function abrirObra(id){
     [o.cliente, o.data_inicio?("início "+new Date(o.data_inicio+"T00:00:00").toLocaleDateString("pt-BR")):null,
      o.prazo_dias?(o.prazo_dias+" dias de prazo"):null].filter(Boolean).join(" · ")||"—";
   history.replaceState({},"","?obra="+id);
+  const dr=document.getElementById("dataRef"); if(dr&&!dr.value) dr.value=_hoje();
+  trocarData();
   await carregarItens();
   ligarTempoReal(id);
 }
@@ -637,30 +661,33 @@ async function carregarItens(){
   pintarKPIs(); pintarItens();
 }
 function pintarKPIs(){
-  const total=ITENS.reduce((s,i)=>s+Number(i.valor||0),0);
-  const feito=ITENS.reduce((s,i)=>s+Number(i.valor_executado||0),0);
-  const pct=total>0?feito/total*100:0;
-  // avanço PREVISTO pela data: linha reta do início até o prazo. É a régua contra
-  // a qual o avanço real é comparado — sem ela, "40% executado" não diz nada.
+  const dir=ITENS.filter(i=>i.tipo_custo!=="indireto");
+  const ind=ITENS.filter(i=>i.tipo_custo==="indireto");
+  const tDir=dir.reduce((s,i)=>s+Number(i.valor||0),0), eDir=dir.reduce((s,i)=>s+Number(i.valor_executado||0),0);
+  const tInd=ind.reduce((s,i)=>s+Number(i.valor||0),0), eInd=ind.reduce((s,i)=>s+Number(i.valor_executado||0),0);
+  const total=tDir+tInd, feito=eDir+eInd;
+  // FÍSICO usa só custo direto — indireto é consumido pelo tempo, não pela produção
+  const pctFis=tDir>0?eDir/tDir*100:0;
+  const pctFin=total>0?feito/total*100:0;
   let prev=null, desvio=null;
   if(OBRA.data_inicio&&OBRA.prazo_dias>0){
     const d0=new Date(OBRA.data_inicio+"T00:00:00");
     const dias=Math.floor((Date.now()-d0.getTime())/86400000);
-    prev=Math.max(0,Math.min(100,dias/OBRA.prazo_dias*100));
-    desvio=pct-prev;
+    prev=Math.max(0,Math.min(100,dias/OBRA.prazo_dias*100)); desvio=pctFis-prev;
   }
-  const conc=ITENS.filter(i=>Number(i.pct)>=100).length;
-  const and=ITENS.filter(i=>Number(i.pct)>0&&Number(i.pct)<100).length;
+  const conc=dir.filter(i=>Number(i.pct)>=100).length, and=dir.filter(i=>Number(i.pct)>0&&Number(i.pct)<100).length;
   const cls=desvio==null?"":(desvio>=-2?"ok":desvio>=-10?"warn":"bad");
   document.getElementById("kpis").innerHTML=`
-    <div class="kpi"><div class="l">Avanço físico</div><div class="v">${nf(pct)}%</div>
-      <div class="s">ponderado pelo valor de cada serviço</div>
-      <div class="bar" style="margin-top:7px"><i style="width:${Math.min(100,pct)}%"></i></div></div>
-    <div class="kpi"><div class="l">Executado</div><div class="v" style="font-size:19px">${money(feito)}</div>
-      <div class="s">de ${money(total)}</div></div>
+    <div class="kpi"><div class="l">Avanço físico</div><div class="v">${nf(pctFis)}%</div>
+      <div class="s">só custo direto · ${money(eDir)} de ${money(tDir)}</div>
+      <div class="bar" style="margin-top:7px"><i style="width:${Math.min(100,pctFis)}%"></i></div></div>
+    <div class="kpi"><div class="l">Financeiro</div><div class="v">${nf(pctFin)}%</div>
+      <div class="s">tudo · ${money(feito)} de ${money(total)}</div></div>
     ${prev!=null?`<div class="kpi ${cls}"><div class="l">Previsto para hoje</div><div class="v">${nf(prev)}%</div>
       <div class="s">${desvio>=0?"adiantado":"atrasado"} ${nf(Math.abs(desvio))} p.p.</div></div>`:""}
-    <div class="kpi"><div class="l">Serviços</div><div class="v">${conc}<span style="font-size:15px;color:var(--muted)">/${ITENS.length}</span></div>
+    ${tInd>0?`<div class="kpi"><div class="l">Custo indireto</div><div class="v" style="font-size:19px">${money(eInd)}</div>
+      <div class="s">de ${money(tInd)} · ${nf(tInd>0?eInd/tInd*100:0)}% · fora do físico</div></div>`:""}
+    <div class="kpi"><div class="l">Serviços diretos</div><div class="v">${conc}<span style="font-size:15px;color:var(--muted)">/${dir.length}</span></div>
       <div class="s">${and} em andamento</div></div>
     <div class="kpi"><div class="l">A executar</div><div class="v" style="font-size:19px">${money(total-feito)}</div>
       <div class="s">saldo do contrato</div></div>`;
@@ -668,10 +695,11 @@ function pintarKPIs(){
 function pintarItens(){
   const q=(document.getElementById("filtro").value||"").toLowerCase().trim();
   const ff=document.getElementById("fFase").value, fs=document.getElementById("fSit").value;
+  const ft=(document.getElementById("fTipo")||{}).value||"";
   const sit=i=>{const p=Number(i.pct)||0; return p>=100?"c":p>0?"p":"z";};
   const lista=ITENS.filter(i=>
     (!q||String(i.descricao).toLowerCase().includes(q)||String(i.codigo||"").toLowerCase().includes(q))&&
-    (!ff||i.fase===ff)&&(!fs||sit(i)===fs));
+    (!ff||i.fase===ff)&&(!fs||sit(i)===fs)&&(!ft||(i.tipo_custo||"direto")===ft));
   if(!lista.length){ document.getElementById("tbItens").innerHTML=
     `<tr><td colspan="6" class="vazio">Nenhum serviço com esse filtro.</td></tr>`; return; }
   let html="", faseAtual=null;
@@ -681,7 +709,7 @@ function pintarItens(){
     const lbl={z:"Não iniciado",p:"Em andamento",c:"Concluído"}[s];
     const quem=i.atualizado_por?`<div class="hist">último: ${esc(i.atualizado_por)} · ${new Date(i.atualizado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</div>`:"";
     html+=`<tr>
-      <td><b>${esc(i.descricao)}</b>${i.manual?' <span class="chip man">manual</span>':""}
+      <td><b>${esc(i.descricao)}</b>${i.manual?' <span class="chip man">manual</span>':""}${(i.tipo_custo==="indireto")?' <span class="chip ind" title="Custo indireto: entra no financeiro, mas NÃO no avanço físico. Clique para alternar." onclick="alternarTipo(\''+'${i.id}'+'\')">indireto</span>':' <span class="chip dir" title="Custo direto: conta no avanço físico. Clique para alternar." onclick="alternarTipo(\''+'${i.id}'+'\')">direto</span>'}
         <div style="font-size:11.5px;color:var(--muted)">${esc(i.codigo||"—")}</div>${quem}</td>
       <td class="num">${nf(i.quantidade)}<div style="font-size:11px;color:var(--muted)">${esc(i.unidade||"")}</div></td>
       <td class="num">${money(i.valor)}</td>
@@ -696,6 +724,38 @@ function pintarItens(){
   document.getElementById("tbItens").innerHTML=html;
 }
 
+// ═════════════════════════════════════════════════════════════════════════════
+// LANÇAMENTO RETROATIVO — para quem adere com a obra já em andamento
+// O log já guardava data_ref (data a que o avanço se refere) separada de
+// criado_em (quando foi digitado). Faltava expor. Em vez de um campo de data por
+// serviço — que burocratiza —, existe UM seletor: "estou lançando a medição de
+// março". Enquanto estiver numa data passada, um aviso fica visível para ninguém
+// retroagir sem querer.
+// ═════════════════════════════════════════════════════════════════════════════
+function _hoje(){ return new Date().toISOString().slice(0,10); }
+function dataRef(){ const e=document.getElementById("dataRef"); return (e&&e.value)||_hoje(); }
+function trocarData(){
+  const el=document.getElementById("avisoData"); const d=dataRef();
+  if(!el) return;
+  if(d===_hoje()){ el.innerHTML=""; return; }
+  const dt=new Date(d+"T00:00:00");
+  const futuro=dt>new Date();
+  el.innerHTML=`<div class="msg ${futuro?"err":"info"}" style="margin:0 0 10px">
+    ${futuro?"⚠ <b>Data no futuro.</b> ":"🕑 <b>Lançamento retroativo.</b> "}
+    Tudo que você marcar agora será registrado como avanço de
+    <b>${dt.toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}</b>,
+    não de hoje. Serve para preencher o histórico de uma obra que já estava em andamento.
+    <button class="btn btn-out" style="padding:3px 10px;font-size:12px;margin-left:8px"
+      onclick="document.getElementById('dataRef').value='${_hoje()}';trocarData()">Voltar para hoje</button></div>`;
+}
+// Alterna direto/indireto de um serviço (a classificação automática erra às vezes)
+async function alternarTipo(id){
+  const it=ITENS.find(x=>x.id===id); if(!it) return;
+  const novo=(it.tipo_custo==="indireto")?"direto":"indireto";
+  const {error}=await sb.from("obra_itens").update({tipo_custo:novo}).eq("id",id);
+  if(error){ msg("itensMsg","Não consegui alterar: "+esc(error.message),"err"); return; }
+  carregarItens();
+}
 // ═══ LANÇAMENTO — insere no log, nunca sobrescreve ═══
 async function lancar(itemId,valor,el){
   let p=parseFloat(String(valor).replace(",","."));
@@ -703,7 +763,8 @@ async function lancar(itemId,valor,el){
   p=Math.round(p*100)/100;
   if(el) el.disabled=true;
   const {error}=await sb.from("obra_avancos").insert({
-    obra_id:OBRA.id, item_id:itemId, pct:p, autor:USER.id, autor_email:USER.email
+    obra_id:OBRA.id, item_id:itemId, pct:p, data_ref:dataRef(),
+    autor:USER.id, autor_email:USER.email
   });
   if(el) el.disabled=false;
   if(error){ msg("itensMsg","Não consegui gravar o lançamento: "+esc(error.message),"err"); return; }
