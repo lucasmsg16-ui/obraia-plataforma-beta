@@ -93,6 +93,37 @@ td.num{text-align:right;white-space:nowrap}
 .via .btn{align-self:flex-start}
 @media(max-width:720px){ th{position:static} .kpi .v{font-size:20px} }
 .gx text{dominant-baseline:middle}
+/* ═══ COMPETÊNCIA (data-base) ═══════════════════════════════════════════════
+   Um seletor de MÊS, não de dia. Medição de obra é mensal; pedir dia a dia
+   burocratiza sem ganho. O mês escolhido vira a "data-base" de TODA a tela —
+   KPI, tabela e situação passam a mostrar a posição naquele fechamento. */
+.comp{display:flex;align-items:center;gap:0;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;background:#fff}
+.comp button{background:#fff;border:0;padding:8px 12px;font-size:15px;cursor:pointer;color:var(--navy);font-family:inherit;line-height:1}
+.comp button:hover:not(:disabled){background:#eaf6fb;color:var(--blue)}
+.comp button:disabled{opacity:.28;cursor:not-allowed}
+.comp .lb{padding:7px 14px;font-size:13.5px;font-weight:700;color:var(--navy);white-space:nowrap;
+  border-left:1px solid var(--border);border-right:1px solid var(--border);min-width:148px;text-align:center}
+.comp.past .lb{background:#fffbeb;color:#92400e}
+.comp.fut  .lb{background:#fef2f2;color:#991b1b}
+.tagbase{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;
+  background:#fffbeb;color:#92400e;border:1px solid #fde68a}
+.tagbase.fut{background:#fef2f2;color:#991b1b;border-color:#fecaca}
+/* alertas do painel */
+.alertas{display:grid;gap:8px;margin-bottom:6px}
+.al{display:flex;gap:10px;align-items:flex-start;border-radius:9px;padding:10px 13px;font-size:13px;border:1px solid}
+.al.r{background:#fef2f2;border-color:#fecaca;color:#7f1d1d}
+.al.a{background:#fffbeb;border-color:#fde68a;color:#78350f}
+.al.g{background:#f0fdf4;border-color:#bbf7d0;color:#14532d}
+.al .ic{font-size:15px;line-height:1.3}
+.al b{font-weight:800}
+/* legenda de gráficos */
+.leg{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px;align-items:center}
+.leg i{display:inline-block;width:22px;height:0;border-top-width:3px;border-top-style:solid;vertical-align:middle;margin-right:5px}
+.leg .sq{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+/* tabela de previsão */
+.meta-in{width:66px;text-align:right;padding:5px 7px;font-size:13px}
+.dlt{font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px}
+.dlt.up{background:#dcfce7;color:#166534}.dlt.dn{background:#fee2e2;color:#991b1b}.dlt.eq{background:#f1f5f9;color:#64748b}
 </style>
 </head>
 <body>
@@ -149,6 +180,7 @@ td.num{text-align:right;white-space:nowrap}
         <p class="sub" id="obraMeta" style="margin-bottom:0"></p>
       </div>
       <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <span id="seloBase"></span>
         <span class="live hide" id="selo"><i></i> ao vivo</span>
         <button class="btn btn-out" onclick="verLista()">← Obras</button>
         <button class="btn btn-out" onclick="abrirEquipe()">👥 Equipe</button>
@@ -160,14 +192,22 @@ td.num{text-align:right;white-space:nowrap}
         <button class="on" onclick="aba('serv',this)">Serviços</button>
         <button onclick="aba('crono',this)">Cronograma</button>
         <button onclick="aba('curva',this)">Curva S</button>
+        <button onclick="aba('prev',this)">Previsão</button>
         <button onclick="aba('mes',this)">Mês a mês</button>
         <button onclick="aba('hist',this)">Histórico</button>
       </div>
       <div id="abaServ">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:11px">
+          <span style="font-size:12.5px;font-weight:700;color:var(--navy)">Medição de</span>
+          <div class="comp" id="compBox">
+            <button onclick="compMover(-1)" title="Mês anterior">◀</button>
+            <div class="lb" id="compTxt">—</div>
+            <button onclick="compMover(1)" id="compProx" title="Mês seguinte">▶</button>
+          </div>
+          <button class="btn btn-out" id="btnHoje" style="padding:7px 13px;font-size:12.5px" onclick="compHoje()">Hoje</button>
+        </div>
         <div id="avisoData"></div>
         <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-          <label style="margin:0;font-weight:600;font-size:12.5px">📅 Data do avanço
-            <input type="date" id="dataRef" style="width:150px;margin-left:5px" onchange="trocarData()"></label>
           <input id="filtro" placeholder="Filtrar serviço…" style="max-width:260px" oninput="pintarItens()">
           <select id="fFase" style="max-width:200px" onchange="pintarItens()"><option value="">Todas as fases</option></select>
           <select id="fSit" style="max-width:180px" onchange="pintarItens()">
@@ -196,6 +236,7 @@ td.num{text-align:right;white-space:nowrap}
       </div>
       <div id="abaCrono" class="hide"></div>
       <div id="abaCurva" class="hide"></div>
+      <div id="abaPrev" class="hide"></div>
       <div id="abaMes" class="hide"></div>
       <div id="abaHist" class="hide"></div>
     </div>
@@ -206,7 +247,7 @@ td.num{text-align:right;white-space:nowrap}
 const SUPA_URL="https://xjzbqikappmaijfkxmms.supabase.co";
 const SUPA_KEY="sb_publishable_8h0mEd8mtbb5RY9JmhzoDw_W2RKJIYs";
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
-let USER=null, OBRA=null, ITENS=[], CANAL=null;
+let USER=null, OBRA=null, ITENS=[], CANAL=null, AVANCOS=[], COMP=null;
 
 const nf=v=>(Number(v)||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
 const money=v=>"R$ "+nf(v);
@@ -646,45 +687,121 @@ async function abrirObra(id){
     [o.cliente, o.data_inicio?("início "+new Date(o.data_inicio+"T00:00:00").toLocaleDateString("pt-BR")):null,
      o.prazo_dias?(o.prazo_dias+" dias de prazo"):null].filter(Boolean).join(" · ")||"—";
   history.replaceState({},"","?obra="+id);
-  const dr=document.getElementById("dataRef"); if(dr&&!dr.value) dr.value=_hoje();
-  trocarData();
+  COMP=_compHoje();
   await carregarItens();
   ligarTempoReal(id);
 }
 async function carregarItens(){
-  const {data,error}=await sb.from("obra_itens_situacao").select("*").eq("obra_id",OBRA.id).order("ordem");
-  if(error){ msg("itensMsg","Falha ao carregar os serviços: "+esc(error.message),"err"); return; }
-  ITENS=data||[];
+  const [r1,r2]=await Promise.all([
+    sb.from("obra_itens_situacao").select("*").eq("obra_id",OBRA.id).order("ordem"),
+    sb.from("obra_avancos").select("item_id,pct,data_ref,autor_email,criado_em").eq("obra_id",OBRA.id).order("data_ref")
+  ]);
+  if(r1.error){ msg("itensMsg","Falha ao carregar os serviços: "+esc(r1.error.message),"err"); return; }
+  ITENS=r1.data||[];
+  // O log inteiro fica no cliente: é ele que permite ler a obra "como estava" em
+  // qualquer mês. Sem isso, retroativo vira chute — você lançaria março olhando
+  // o número de agosto. Ordena por data_ref e, no empate, por quando foi digitado.
+  AVANCOS=(r2.data||[]).slice().sort((a,b)=>
+    a.data_ref===b.data_ref ? String(a.criado_em).localeCompare(String(b.criado_em))
+                            : String(a.data_ref).localeCompare(String(b.data_ref)));
   const fases=[...new Set(ITENS.map(i=>i.fase).filter(Boolean))];
   const sel=document.getElementById("fFase");
   sel.innerHTML='<option value="">Todas as fases</option>'+fases.map(f=>`<option>${esc(f)}</option>`).join("");
-  pintarKPIs(); pintarItens();
+  pintarComp(); pintarKPIs(); pintarItens();
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// POSIÇÃO EM UMA DATA — o coração do retroativo
+// pctMapa(ate) devolve o % de cada serviço COMO ESTAVA no fim daquela data.
+// É só varrer o log até ali e ficar com o último valor de cada item. Com isso a
+// tela inteira (KPI, tabela, curva) sabe responder "e em março, como estava?".
+// ═════════════════════════════════════════════════════════════════════════════
+function pctMapa(ate){
+  const m={};
+  for(const a of AVANCOS){ if(a.data_ref<=ate) m[a.item_id]=Number(a.pct)||0; else break; }
+  return m;
+}
+function itensEm(ate){
+  const m=pctMapa(ate);
+  return ITENS.map(i=>{ const p=(m[i.id]!==undefined)?m[i.id]:0;
+    return {...i, pct:p, valor_executado:(Number(i.valor)||0)*p/100}; });
+}
+// ═════════════════════════════════════════════════════════════════════════════
+// VALOR AGREGADO (EVM) — a leitura que separa relatório bonito de gestão real
+//   PV (previsto)  = quanto de obra o cronograma dizia que estaria pronto na data
+//   EV (agregado)  = quanto de obra ESTÁ pronto, medido a preço de contrato
+//   SPI = EV/PV    → abaixo de 1, atrasado
+//   Atraso em DIAS = há quantos dias o cronograma já previa o volume que você tem
+//                    hoje. É o número que o cliente entende; "p.p." não diz nada
+//                    para quem pergunta "vamos entregar quando?".
+// ═════════════════════════════════════════════════════════════════════════════
+function _pvEm(d, t){ let ac=0; d.ativ.forEach(a=>{ ac+=a.valor*Math.max(0,Math.min(1,(t-a.ini)/(a.dur||1))); }); return ac; }
+function _diaDaObra(dtISO){
+  const d0=OBRA.data_inicio? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
+  return (new Date(dtISO+"T00:00:00")-d0)/86400000;
+}
+// Em que dia do cronograma o PV alcança um valor? (busca binária na curva)
+function _diaDoValor(d, alvo){
+  if(alvo<=0) return 0;
+  if(alvo>=d.total) return d.fim;
+  let lo=0, hi=d.fim;
+  for(let k=0;k<40;k++){ const m=(lo+hi)/2; if(_pvEm(d,m)<alvo) lo=m; else hi=m; }
+  return (lo+hi)/2;
+}
+function evm(dataISO){
+  const d=_calcCrono(); if(!d||!d.total) return null;
+  const t=_diaDaObra(dataISO);
+  const its=itensEm(dataISO);
+  const EV=its.reduce((s,i)=>s+Number(i.valor_executado||0),0);
+  const PV=_pvEm(d,t);
+  const spi = PV>0 ? EV/PV : (EV>0?1:0);
+  const tEV=_diaDoValor(d,EV);
+  const atrasoDias = Math.round(t - tEV);          // >0 atrasado, <0 adiantado
+  const restante = d.total-EV;
+  const diasRest = Math.max(0, d.fim - t);
+  // ritmo: o que já se produziu por mês x o que precisa produzir para entregar
+  const ritmoReal = t>0 ? EV/t*30 : 0;
+  const ritmoNec  = diasRest>0 ? restante/diasRest*30 : restante;
+  // término provável: mantido o desempenho medido até aqui
+  const fimProv = spi>0 ? d.fim/Math.min(spi,4) : d.fim*2;
+  return {d,t,its,EV,PV,spi,atrasoDias,restante,diasRest,ritmoReal,ritmoNec,fimProv,total:d.total};
+}
+
 function pintarKPIs(){
-  const dir=ITENS.filter(i=>i.tipo_custo!=="indireto");
-  const ind=ITENS.filter(i=>i.tipo_custo==="indireto");
+  const base=dataBase(), fut=ehFuturo();
+  const its=itensEm(base);
+  const dir=its.filter(i=>i.tipo_custo!=="indireto");
+  const ind=its.filter(i=>i.tipo_custo==="indireto");
   const tDir=dir.reduce((s,i)=>s+Number(i.valor||0),0), eDir=dir.reduce((s,i)=>s+Number(i.valor_executado||0),0);
   const tInd=ind.reduce((s,i)=>s+Number(i.valor||0),0), eInd=ind.reduce((s,i)=>s+Number(i.valor_executado||0),0);
   const total=tDir+tInd, feito=eDir+eInd;
   // FÍSICO usa só custo direto — indireto é consumido pelo tempo, não pela produção
   const pctFis=tDir>0?eDir/tDir*100:0;
   const pctFin=total>0?feito/total*100:0;
-  let prev=null, desvio=null;
-  if(OBRA.data_inicio&&OBRA.prazo_dias>0){
-    const d0=new Date(OBRA.data_inicio+"T00:00:00");
-    const dias=Math.floor((Date.now()-d0.getTime())/86400000);
-    prev=Math.max(0,Math.min(100,dias/OBRA.prazo_dias*100)); desvio=pctFis-prev;
-  }
+  const E=evm(base);
   const conc=dir.filter(i=>Number(i.pct)>=100).length, and=dir.filter(i=>Number(i.pct)>0&&Number(i.pct)<100).length;
-  const cls=desvio==null?"":(desvio>=-2?"ok":desvio>=-10?"warn":"bad");
+  const selo = base===_hoje() ? "" :
+    `<span class="tagbase ${fut?"fut":""}">${fut?"🔮":"🕑"} posição em ${new Date(base+"T00:00:00").toLocaleDateString("pt-BR")}</span>`;
+  document.getElementById("obraMeta").dataset.base=base;
+  const bx=document.getElementById("seloBase"); if(bx) bx.innerHTML=selo;
+
+  let kAtraso="";
+  if(E){
+    const a=E.atrasoDias;
+    const cls = a<=2?"ok":a<=15?"warn":"bad";
+    kAtraso=`<div class="kpi ${cls}"><div class="l">${a>=0?"Atraso":"Adiantamento"}</div>
+      <div class="v">${Math.abs(a)}<span style="font-size:14px;color:var(--muted)"> dias</span></div>
+      <div class="s">SPI ${E.spi.toFixed(2)} · ${a>=0?"falta":"sobra"} ${money(Math.abs(E.PV-E.EV))} de obra</div></div>`;
+  }
   document.getElementById("kpis").innerHTML=`
     <div class="kpi"><div class="l">Avanço físico</div><div class="v">${nf(pctFis)}%</div>
       <div class="s">só custo direto · ${money(eDir)} de ${money(tDir)}</div>
       <div class="bar" style="margin-top:7px"><i style="width:${Math.min(100,pctFis)}%"></i></div></div>
     <div class="kpi"><div class="l">Financeiro</div><div class="v">${nf(pctFin)}%</div>
       <div class="s">tudo · ${money(feito)} de ${money(total)}</div></div>
-    ${prev!=null?`<div class="kpi ${cls}"><div class="l">Previsto para hoje</div><div class="v">${nf(prev)}%</div>
-      <div class="s">${desvio>=0?"adiantado":"atrasado"} ${nf(Math.abs(desvio))} p.p.</div></div>`:""}
+    ${E?`<div class="kpi"><div class="l">Previsto para a data</div><div class="v">${nf(E.total>0?E.PV/E.total*100:0)}%</div>
+      <div class="s">pelo cronograma · ${money(E.PV)}</div></div>`:""}
+    ${kAtraso}
     ${tInd>0?`<div class="kpi"><div class="l">Custo indireto</div><div class="v" style="font-size:19px">${money(eInd)}</div>
       <div class="s">de ${money(tInd)} · ${nf(tInd>0?eInd/tInd*100:0)}% · fora do físico</div></div>`:""}
     <div class="kpi"><div class="l">Serviços diretos</div><div class="v">${conc}<span style="font-size:15px;color:var(--muted)">/${dir.length}</span></div>
@@ -693,11 +810,17 @@ function pintarKPIs(){
       <div class="s">saldo do contrato</div></div>`;
 }
 function pintarItens(){
+  const base=dataBase(), fut=ehFuturo();
+  const its=itensEm(base);
   const q=(document.getElementById("filtro").value||"").toLowerCase().trim();
   const ff=document.getElementById("fFase").value, fs=document.getElementById("fSit").value;
   const ft=(document.getElementById("fTipo")||{}).value||"";
   const sit=i=>{const p=Number(i.pct)||0; return p>=100?"c":p>0?"p":"z";};
-  const lista=ITENS.filter(i=>
+  // % no mês anterior: mostra o quanto ANDOU nesta competência, não só o acumulado
+  const c=compAtual(); const [ay,am]=c.split("-").map(Number);
+  const antISO=new Date(ay,am-1,0).toISOString().slice(0,10);
+  const mAnt=pctMapa(antISO);
+  const lista=its.filter(i=>
     (!q||String(i.descricao).toLowerCase().includes(q)||String(i.codigo||"").toLowerCase().includes(q))&&
     (!ff||i.fase===ff)&&(!fs||sit(i)===fs)&&(!ft||(i.tipo_custo||"direto")===ft));
   if(!lista.length){ document.getElementById("tbItens").innerHTML=
@@ -706,16 +829,22 @@ function pintarItens(){
   lista.forEach(i=>{
     if(i.fase&&i.fase!==faseAtual){ faseAtual=i.fase; html+=`<tr class="fase"><td colspan="6">${esc(i.fase)}</td></tr>`; }
     const p=Number(i.pct)||0, s=sit(i);
+    const pa=mAnt[i.id]||0, dl=Math.round((p-pa)*100)/100;
     const lbl={z:"Não iniciado",p:"Em andamento",c:"Concluído"}[s];
-    const quem=i.atualizado_por?`<div class="hist">último: ${esc(i.atualizado_por)} · ${new Date(i.atualizado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</div>`:"";
+    const ult=[...AVANCOS].reverse().find(a=>a.item_id===i.id&&a.data_ref<=base);
+    const quem=ult?`<div class="hist">último: ${esc(ult.autor_email||"—")} · ${new Date(ult.data_ref+"T00:00:00").toLocaleDateString("pt-BR")}</div>`:"";
+    const chipTipo = (i.tipo_custo==="indireto")
+      ? `<span class="chip ind" title="Custo indireto: entra no financeiro, mas NÃO no avanço físico. Clique para alternar." onclick="alternarTipo('${i.id}')">indireto</span>`
+      : `<span class="chip dir" title="Custo direto: conta no avanço físico. Clique para alternar." onclick="alternarTipo('${i.id}')">direto</span>`;
     html+=`<tr>
-      <td><b>${esc(i.descricao)}</b>${i.manual?' <span class="chip man">manual</span>':""}${(i.tipo_custo==="indireto")?' <span class="chip ind" title="Custo indireto: entra no financeiro, mas NÃO no avanço físico. Clique para alternar." onclick="alternarTipo(\''+'${i.id}'+'\')">indireto</span>':' <span class="chip dir" title="Custo direto: conta no avanço físico. Clique para alternar." onclick="alternarTipo(\''+'${i.id}'+'\')">direto</span>'}
+      <td><b>${esc(i.descricao)}</b>${i.manual?' <span class="chip man">manual</span>':""} ${chipTipo}
         <div style="font-size:11.5px;color:var(--muted)">${esc(i.codigo||"—")}</div>${quem}</td>
       <td class="num">${nf(i.quantidade)}<div style="font-size:11px;color:var(--muted)">${esc(i.unidade||"")}</div></td>
       <td class="num">${money(i.valor)}</td>
       <td><div style="display:flex;align-items:center;gap:6px">
-        <input class="pct-in" type="number" min="0" max="100" step="1" value="${p}"
+        <input class="pct-in" type="number" min="0" max="100" step="1" value="${p}" ${fut?"disabled title='Mês futuro — use a aba Previsão'":""}
                onchange="lancar('${i.id}',this.value,this)"> %
+        ${dl?`<span class="dlt ${dl>0?"up":"dn"}" title="variação nesta competência">${dl>0?"+":""}${nf(dl)}</span>`:""}
       </div><div class="bar" style="margin-top:5px"><i style="width:${Math.min(100,p)}%"></i></div></td>
       <td class="num">${money(i.valor_executado)}</td>
       <td><span class="chip ${s}">${lbl}</span></td>
@@ -723,30 +852,71 @@ function pintarItens(){
   });
   document.getElementById("tbItens").innerHTML=html;
 }
-
 // ═════════════════════════════════════════════════════════════════════════════
-// LANÇAMENTO RETROATIVO — para quem adere com a obra já em andamento
-// O log já guardava data_ref (data a que o avanço se refere) separada de
-// criado_em (quando foi digitado). Faltava expor. Em vez de um campo de data por
-// serviço — que burocratiza —, existe UM seletor: "estou lançando a medição de
-// março". Enquanto estiver numa data passada, um aviso fica visível para ninguém
-// retroagir sem querer.
+// COMPETÊNCIA — a data-base da tela
+// Medição de obra é mensal. Pedir dia exato para lançar avanço é burocracia que
+// ninguém cumpre. Aqui existe UM controle: o mês. Ele é a data-base de tudo —
+// KPI, tabela e situação mostram a obra COMO ESTAVA no fechamento daquele mês.
+// Assim quem adere com a obra no meio simplesmente volta os meses e preenche.
+//   · mês corrente  → data_ref = hoje
+//   · mês passado   → data_ref = último dia do mês (é o fechamento da medição)
+//   · mês futuro    → não se lança avanço real; vai para a aba Previsão
 // ═════════════════════════════════════════════════════════════════════════════
+const MESES_PT=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 function _hoje(){ return new Date().toISOString().slice(0,10); }
-function dataRef(){ const e=document.getElementById("dataRef"); return (e&&e.value)||_hoje(); }
-function trocarData(){
-  const el=document.getElementById("avisoData"); const d=dataRef();
-  if(!el) return;
-  if(d===_hoje()){ el.innerHTML=""; return; }
-  const dt=new Date(d+"T00:00:00");
-  const futuro=dt>new Date();
-  el.innerHTML=`<div class="msg ${futuro?"err":"info"}" style="margin:0 0 10px">
-    ${futuro?"⚠ <b>Data no futuro.</b> ":"🕑 <b>Lançamento retroativo.</b> "}
-    Tudo que você marcar agora será registrado como avanço de
-    <b>${dt.toLocaleDateString("pt-BR",{day:"2-digit",month:"long",year:"numeric"})}</b>,
-    não de hoje. Serve para preencher o histórico de uma obra que já estava em andamento.
-    <button class="btn btn-out" style="padding:3px 10px;font-size:12px;margin-left:8px"
-      onclick="document.getElementById('dataRef').value='${_hoje()}';trocarData()">Voltar para hoje</button></div>`;
+function _compHoje(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function _compRotulo(c){ const [a,m]=c.split("-").map(Number); return MESES_PT[m-1]+" de "+a; }
+function _fimDoMes(c){ const [a,m]=c.split("-").map(Number);
+  return new Date(a,m,0).toISOString().slice(0,10); }   // dia 0 do mês seguinte = último do mês
+function _compInicio(){   // primeira competência = mês de início da obra (ou 12 meses atrás)
+  if(OBRA&&OBRA.data_inicio) return OBRA.data_inicio.slice(0,7);
+  const d=new Date(); d.setMonth(d.getMonth()-12);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+}
+function compAtual(){ return COMP||_compHoje(); }
+function ehFuturo(c){ return (c||compAtual())>_compHoje(); }
+// data-base = até quando a tela enxerga o log
+function dataBase(){ const c=compAtual();
+  return c===_compHoje()? _hoje() : _fimDoMes(c); }
+// data em que o lançamento é gravado
+function dataRef(){ return dataBase(); }
+function compMover(n){
+  const [a,m]=compAtual().split("-").map(Number);
+  const d=new Date(a,m-1+n,1);
+  COMP=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+  if(COMP<_compInicio()) COMP=_compInicio();
+  pintarComp(); pintarKPIs(); pintarItens();
+}
+function compHoje(){ COMP=_compHoje(); pintarComp(); pintarKPIs(); pintarItens(); }
+function pintarComp(){
+  const c=compAtual(), hoje=_compHoje(), box=document.getElementById("compBox");
+  const txt=document.getElementById("compTxt"), av=document.getElementById("avisoData");
+  if(txt) txt.textContent=_compRotulo(c).replace(/^./,x=>x.toUpperCase());
+  if(box){ box.classList.toggle("past", c<hoje); box.classList.toggle("fut", c>hoje); }
+  const bh=document.getElementById("btnHoje"); if(bh) bh.style.display = c===hoje?"none":"";
+  const bp=document.getElementById("compProx"); if(bp) bp.disabled = false;
+  const ba=box&&box.querySelector("button"); if(ba) ba.disabled = c<=_compInicio();
+  if(!av) return;
+  if(c===hoje){ av.innerHTML=""; return; }
+  if(c>hoje){
+    av.innerHTML=`<div class="msg err" style="margin:0 0 11px">
+      🔮 <b>${_compRotulo(c).replace(/^./,x=>x.toUpperCase())} ainda não aconteceu.</b>
+      Aqui não se lança avanço real de mês futuro — o número viraria ficção no seu relatório.
+      Para planejar o que pretende executar, use a aba
+      <b><a href="#" onclick="irPrevisao();return false" style="color:#991b1b">Previsão</a></b>.
+      <button class="btn btn-out" style="padding:3px 10px;font-size:12px;margin-left:8px" onclick="compHoje()">Voltar para hoje</button></div>`;
+    return;
+  }
+  av.innerHTML=`<div class="msg info" style="margin:0 0 11px">
+    🕑 <b>Você está no fechamento de ${_compRotulo(c)}.</b>
+    A tela inteira mostra a obra <b>como estava em ${new Date(_fimDoMes(c)+"T00:00:00").toLocaleDateString("pt-BR")}</b>,
+    e o que você marcar entra como avanço daquele mês — não de hoje.
+    É assim que se preenche o histórico de uma obra que já estava andando.
+    <button class="btn btn-out" style="padding:3px 10px;font-size:12px;margin-left:8px" onclick="compHoje()">Voltar para hoje</button></div>`;
+}
+function irPrevisao(){
+  const bs=[...document.querySelectorAll(".tabs button")];
+  const b=bs.find(x=>x.textContent.trim()==="Previsão"); if(b) aba("prev",b);
 }
 // Alterna direto/indireto de um serviço (a classificação automática erra às vezes)
 async function alternarTipo(id){
@@ -758,6 +928,7 @@ async function alternarTipo(id){
 }
 // ═══ LANÇAMENTO — insere no log, nunca sobrescreve ═══
 async function lancar(itemId,valor,el){
+  if(ehFuturo()){ alert("Este mês ainda não aconteceu. Para planejar o que pretende executar, use a aba Previsão."); pintarItens(); return; }
   let p=parseFloat(String(valor).replace(",","."));
   if(!(p>=0&&p<=100)){ alert("O percentual precisa ficar entre 0 e 100."); carregarItens(); return; }
   p=Math.round(p*100)/100;
@@ -798,10 +969,11 @@ function ligarTempoReal(obraId){
 function aba(qual,btn){
   document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("on"));
   btn.classList.add("on");
-  ["Serv","Crono","Curva","Mes","Hist"].forEach(x=>document.getElementById("aba"+x).classList.add("hide"));
+  ["Serv","Crono","Curva","Prev","Mes","Hist"].forEach(x=>document.getElementById("aba"+x).classList.add("hide"));
   if(qual==="serv") document.getElementById("abaServ").classList.remove("hide");
   if(qual==="crono"){ document.getElementById("abaCrono").classList.remove("hide"); cronograma(); }
   if(qual==="curva"){ document.getElementById("abaCurva").classList.remove("hide"); curvaS(); }
+  if(qual==="prev"){ document.getElementById("abaPrev").classList.remove("hide"); previsao(); }
   if(qual==="mes"){ document.getElementById("abaMes").classList.remove("hide"); mesAmes(); }
   if(qual==="hist"){ document.getElementById("abaHist").classList.remove("hide"); historico(); }
 }
@@ -843,6 +1015,7 @@ function _cronoCfg(){
   Object.assign(cfg, salvo);
   cfg.dur=Object.assign({},salvo.dur||{});
   cfg.links=Object.assign({},salvo.links||{});
+  cfg.plano=Object.assign({},salvo.plano||{});   // metas de previsão, por mês
   fs.forEach((f,i)=>{ if(!cfg.links[f.nome])
     cfg.links[f.nome]= i===0?[]:[{p:fs[i-1].nome,tipo:"SS",lag:80,un:"%"}]; });
   return cfg;
@@ -904,6 +1077,23 @@ function _curvaPrevista(d, passos){
   }
   return pts;
 }
+// ═════════════════════════════════════════════════════════════════════════════
+// GANTT — o que os softwares de planejamento mostram e a maioria dos painéis não
+//   · seta ligando predecessora → sucessora (dá para LER a rede, não só a tabela)
+//   · marca de "avanço esperado hoje" dentro de cada barra: bate o que a etapa
+//     deveria ter feito contra o que fez. É o diagnóstico por etapa, não da obra
+//     inteira — atraso na obra não diz ONDE está o problema.
+//   · cor por situação, e um painel do que exige atenção agora
+// ═════════════════════════════════════════════════════════════════════════════
+function _statusEtapa(a, hoje){
+  if(a.pct>=99.95) return {k:"ok",  cor:"#16a34a", lbl:"concluída"};
+  if(hoje<a.ini)   return {k:"fut", cor:"#94a3b8", lbl:"não começou (previsto adiante)"};
+  const esper=Math.max(0,Math.min(1,(hoje-a.ini)/(a.dur||1)))*100;
+  if(a.pct<=0)     return {k:"nao", cor:"#dc2626", lbl:"deveria ter começado", esper};
+  if(hoje>a.fim)   return {k:"atr", cor:"#dc2626", lbl:"passou do término", esper};
+  if(a.pct < esper-8) return {k:"lento", cor:"#d97706", lbl:"abaixo do previsto", esper};
+  return {k:"and", cor:"#1792C0", lbl:"em dia", esper};
+}
 function cronograma(){
   const host=document.getElementById("abaCrono");
   const d=_calcCrono();
@@ -913,64 +1103,116 @@ function cronograma(){
   const dia=n=>{const x=new Date(d0); x.setDate(x.getDate()+Math.round(n)); return x;};
   const fmt=x=>x.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"});
   const hoje=(Date.now()-d0.getTime())/86400000;
-  const W=1000, LBL=232, TRK=W-LBL-8;
+  const W=1020, LBL=236, TRK=W-LBL-14, RH=32;
   const px=t=>LBL+(d.fim>0? t/d.fim*TRK : 0);
-  // marcos de mês
+  const yDe={}; d.ativ.forEach((a,i)=>yDe[a.nome]=40+i*RH);
   const meses=[]; let cur=new Date(d0.getFullYear(),d0.getMonth(),1);
   while(true){ const off=(cur-d0)/86400000; if(off>d.fim) break;
     if(off>=0) meses.push({off, txt:cur.toLocaleDateString("pt-BR",{month:"short"}).replace(".","")+"/"+String(cur.getFullYear()).slice(2)});
     cur=new Date(cur.getFullYear(),cur.getMonth()+1,1); }
-  const H=d.ativ.length*30+52;
+  const H=d.ativ.length*RH+62;
+
+  // ── setas de dependência ──
+  const setas=d.ativ.map(a=>a.preds.map(v=>{
+    const pr=d.ativ.find(x=>x.nome===v.p); if(!pr) return "";
+    const yP=yDe[pr.nome], yS=yDe[a.nome];
+    const saiT = (v.tipo==="SS"||v.tipo==="SF") ? pr.ini : pr.fim;
+    const chegaT = (v.tipo==="FF"||v.tipo==="SF") ? a.fim : a.ini;
+    const x1=px(saiT), x2=px(chegaT);
+    const crit=pr.critica&&a.critica;
+    const cor=crit?"#dc2626":"#b6c6d4", op=crit?".85":".55";
+    const dy=yS>yP?1:-1;
+    // desvia por baixo quando a sucessora começa antes da saída (evita reta cortando barras)
+    const dPath = x2>=x1+8
+      ? `M${x1},${yP} L${x1+6},${yP} L${x1+6},${yS-dy*9} L${x2-7},${yS-dy*9} L${x2-7},${yS}`
+      : `M${x1},${yP} L${x1+6},${yP} L${x1+6},${yP+dy*(RH/2-3)} L${x2-9},${yP+dy*(RH/2-3)} L${x2-9},${yS-dy*9} L${x2-4},${yS-dy*9} L${x2-4},${yS}`;
+    return `<path d="${dPath}" fill="none" stroke="${cor}" stroke-width="${crit?1.5:1.1}" opacity="${op}" marker-end="url(#seta${crit?"C":""})"/>`;
+  }).join("")).join("");
+
   const barras=d.ativ.map((a,i)=>{
-    const y=34+i*30, x1=px(a.ini), x2=px(a.fim), w=Math.max(3,x2-x1);
-    const cor=a.critica?"#dc2626":"#1792C0";
-    const atras=hoje>a.fim&&a.pct<100;
-    // o rótulo é recortado na faixa da esquerda: sem isso, nome comprido invadia
-    // a área das barras e ficava "escondido atrás" delas
-    const fim1=x1+w;
-    const pctDentro = fim1 > W-70;      // % ficaria fora do gráfico → põe dentro da barra
+    const y=yDe[a.nome], x1=px(a.ini), x2=px(a.fim), w=Math.max(3,x2-x1);
+    const st=_statusEtapa(a,hoje);
+    const fim1=x1+w, pctDentro=fim1>W-76;
+    const xEsp = st.esper!=null ? x1+w*Math.min(1,st.esper/100) : null;
     return `<g>
-      <rect x="0" y="${y-11}" width="${W}" height="26" fill="${i%2?"#f8fafc":"#fff"}"/>
-      <g clip-path="url(#clpLbl)"><text x="8" y="${y+5}" font-size="12" font-weight="600" fill="#002B40">${esc(a.nome)}</text></g>
-      <text x="${LBL-8}" y="${y+5}" font-size="10.5" fill="#94a3b8" text-anchor="end">${a.dur}d</text>
-      <rect x="${x1}" y="${y-7}" width="${w}" height="18" rx="4" fill="${cor}" opacity=".18"/>
-      <rect x="${x1}" y="${y-7}" width="${w*Math.min(1,a.pct/100)}" height="18" rx="4" fill="${cor}"/>
-      <rect x="${x1}" y="${y-7}" width="${w}" height="18" rx="4" fill="none" stroke="${atras?"#dc2626":cor}" stroke-width="${atras?1.6:1}"/>
-      <text x="${pctDentro? fim1-5 : fim1+6}" y="${y+5}" font-size="10.5" font-weight="700"
+      <rect x="0" y="${y-13}" width="${W}" height="${RH-4}" fill="${i%2?"#f8fafc":"#fff"}"/>
+      <g clip-path="url(#clpLbl)"><text x="8" y="${y+4}" font-size="12" font-weight="600" fill="#002B40">${esc(a.nome)}</text></g>
+      <text x="${LBL-10}" y="${y+4}" font-size="10" fill="#94a3b8" text-anchor="end">${a.dur}d</text>
+      <rect x="${x1}" y="${y-9}" width="${w}" height="19" rx="4" fill="${st.cor}" opacity=".15"/>
+      <rect x="${x1}" y="${y-9}" width="${w*Math.min(1,a.pct/100)}" height="19" rx="4" fill="${st.cor}"/>
+      <rect x="${x1}" y="${y-9}" width="${w}" height="19" rx="4" fill="none" stroke="${st.cor}" stroke-width="${a.critica?1.7:1}"/>
+      ${xEsp!=null&&st.k!=="ok"?`<line x1="${xEsp}" y1="${y-12}" x2="${xEsp}" y2="${y+13}" stroke="#0f172a" stroke-width="1.5" opacity=".62"/>`:""}
+      <text x="${pctDentro? fim1-5 : fim1+6}" y="${y+4}" font-size="10.5" font-weight="700"
         text-anchor="${pctDentro?"end":"start"}"
-        fill="${pctDentro && a.pct>55 ? "#fff" : (a.pct>0?cor:"#94a3b8")}">${nf(a.pct)}%</text>
-      <title>${esc(a.nome)}\n${fmt(dia(a.ini))} → ${fmt(dia(a.fim))} · ${a.dur} dias\n${money(a.valor)} · ${nf(a.pct)}% executado\n${a.critica?"CAMINHO CRÍTICO":"folga "+a.folga+" dias"}</title>
+        fill="${pctDentro && a.pct>55 ? "#fff" : (a.pct>0?st.cor:"#94a3b8")}">${nf(a.pct)}%</text>
+      <title>${esc(a.nome)} — ${st.lbl}\n${fmt(dia(a.ini))} → ${fmt(dia(a.fim))} · ${a.dur} dias\n${money(a.valor)} · executado ${nf(a.pct)}%${st.esper!=null?" (esperado hoje "+nf(st.esper)+"%)":""}\n${a.critica?"CAMINHO CRÍTICO":"folga "+a.folga+" dias"}</title>
     </g>`;
   }).join("");
-  const gantt=`<svg class="gx" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;min-width:760px">
-    <defs><clipPath id="clpLbl"><rect x="0" y="0" width="${LBL-34}" height="${H}"/></clipPath></defs>
-    <rect x="${LBL}" y="18" width="${TRK}" height="${H-32}" fill="#fff"/>
-    ${meses.map(m=>`<line x1="${px(m.off)}" y1="18" x2="${px(m.off)}" y2="${H-14}" stroke="#e8eef4"/>
-      <text x="${Math.min(px(m.off)+3, W-30)}" y="14" font-size="10" fill="#94a3b8">${m.txt}</text>`).join("")}
+
+  const gantt=`<svg class="gx" viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;min-width:780px">
+    <defs>
+      <clipPath id="clpLbl"><rect x="0" y="0" width="${LBL-36}" height="${H}"/></clipPath>
+      <marker id="seta" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 z" fill="#b6c6d4"/></marker>
+      <marker id="setaC" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 z" fill="#dc2626"/></marker>
+    </defs>
+    <rect x="${LBL}" y="20" width="${TRK}" height="${H-36}" fill="#fff"/>
+    ${meses.map(m=>`<line x1="${px(m.off)}" y1="20" x2="${px(m.off)}" y2="${H-16}" stroke="#e8eef4"/>
+      <text x="${Math.min(px(m.off)+3, W-32)}" y="14" font-size="10" fill="#94a3b8">${m.txt}</text>`).join("")}
+    ${setas}
     ${barras}
-    ${hoje>=0&&hoje<=d.fim?`<line x1="${px(hoje)}" y1="18" x2="${px(hoje)}" y2="${H-14}" stroke="#dc2626" stroke-width="1.6" stroke-dasharray="5,4"/>
-      <text x="${px(hoje)+4}" y="${H-18}" font-size="10" font-weight="700" fill="#dc2626">hoje</text>`:""}
+    ${hoje>=0&&hoje<=d.fim?`<line x1="${px(hoje)}" y1="20" x2="${px(hoje)}" y2="${H-16}" stroke="#dc2626" stroke-width="1.6" stroke-dasharray="5,4"/>
+      <text x="${px(hoje)+4}" y="${H-20}" font-size="10" font-weight="700" fill="#dc2626">hoje</text>`:""}
   </svg>`;
+
+  // ── o que exige atenção agora ──
+  const naoIniciou=d.ativ.filter(a=>_statusEtapa(a,hoje).k==="nao");
+  const estourou =d.ativ.filter(a=>_statusEtapa(a,hoje).k==="atr");
+  const lentas   =d.ativ.filter(a=>_statusEtapa(a,hoje).k==="lento");
+  const critAtras=d.ativ.filter(a=>a.critica&&["nao","atr","lento"].includes(_statusEtapa(a,hoje).k));
+  let al="";
+  if(critAtras.length) al+=`<div class="al r"><span class="ic">🚨</span><div>
+    <b>${critAtras.length} etapa(s) do caminho crítico fora do previsto:</b> ${critAtras.map(a=>esc(a.nome)).join(", ")}.
+    Etapa crítica não tem folga — cada dia perdido aqui é um dia a mais na entrega.</div></div>`;
+  if(estourou.length) al+=`<div class="al r"><span class="ic">⏰</span><div>
+    <b>Passou do término previsto e não fechou:</b> ${estourou.map(a=>esc(a.nome)+" ("+nf(a.pct)+"%)").join(" · ")}.</div></div>`;
+  if(naoIniciou.length) al+=`<div class="al a"><span class="ic">🚧</span><div>
+    <b>Deveria ter começado e está zerada:</b> ${naoIniciou.map(a=>esc(a.nome)).join(", ")}.
+    Ou a equipe não entrou, ou o avanço não foi lançado.</div></div>`;
+  if(lentas.length) al+=`<div class="al a"><span class="ic">🐢</span><div>
+    <b>Andando abaixo do previsto:</b> ${lentas.map(a=>esc(a.nome)+" ("+nf(a.pct)+"% de "+nf(_statusEtapa(a,hoje).esper)+"% esperados)").join(" · ")}.</div></div>`;
+  if(!al) al=`<div class="al g"><span class="ic">✅</span><div><b>Nenhuma etapa fora do previsto.</b> O cronograma está sendo cumprido.</div></div>`;
+
   const crit=d.ativ.filter(a=>a.critica);
   host.innerHTML=`
     ${d.ciclo?`<div class="msg err">⚠ Há dependência circular entre etapas — o caminho crítico não é confiável até corrigir.</div>`:""}
-    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+    <div class="alertas">${al}</div>
+    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:16px 0 14px">
       <label style="margin:0">Prazo total (dias)
         <input type="number" min="1" value="${d.cfg.prazo}" style="width:92px;margin-left:6px" onchange="salvarPrazo(this.value)"></label>
       <span style="font-size:12.5px;color:var(--muted)">Conclusão: <b style="color:var(--navy)">${fmt(dia(d.fim))}</b> · ${Math.round(d.fim)} dias</span>
       <button class="btn btn-out" style="padding:5px 12px;font-size:12.5px;margin-left:auto" onclick="resetCrono()">↺ Rede sugerida</button>
     </div>
     <div style="overflow:auto;border:1px solid var(--border);border-radius:10px;background:#fff">${gantt}</div>
-    <div style="font-size:11.5px;color:var(--muted);margin-top:9px">
-      Barra clara = prazo previsto · parte cheia = <b>avanço real lançado</b> · <b style="color:#dc2626">vermelho</b> = caminho crítico.
-      ${crit.length?`Caminho crítico: <b>${crit.map(a=>esc(a.nome)).join(" → ")}</b>.`:""}
+    <div class="leg" style="margin-top:9px">
+      <span><span class="sq" style="background:#16a34a"></span>concluída</span>
+      <span><span class="sq" style="background:#1792C0"></span>em dia</span>
+      <span><span class="sq" style="background:#d97706"></span>abaixo do previsto</span>
+      <span><span class="sq" style="background:#dc2626"></span>atrasada / não começou</span>
+      <span><span class="sq" style="background:#94a3b8"></span>ainda não começa</span>
+      <span><b style="color:#0f172a">│</b> avanço esperado hoje</span>
+      <span>seta = dependência entre etapas</span>
     </div>
-    <h3 style="font-size:14px;color:var(--navy);margin:20px 0 8px">Etapas e vínculos</h3>
+    ${crit.length?`<div style="font-size:11.5px;color:var(--muted);margin-top:7px">
+      Caminho crítico: <b style="color:#dc2626">${crit.map(a=>esc(a.nome)).join(" → ")}</b> — atrasar qualquer uma dessas atrasa a entrega.</div>`:""}
+    <h3 style="font-size:14px;color:var(--navy);margin:22px 0 8px">Etapas e vínculos</h3>
     <div style="overflow:auto"><table>
-      <thead><tr><th>Etapa</th><th class="num">Valor</th><th class="num">Duração</th>
+      <thead><tr><th>Etapa</th><th>Situação</th><th class="num">Valor</th><th class="num">Duração</th>
         <th class="num">Início</th><th class="num">Término</th><th>Depende de</th><th class="num">Folga</th></tr></thead>
-      <tbody>${d.ativ.map(a=>`<tr class="${a.critica?"":""}">
-        <td><b>${esc(a.nome)}</b><div style="font-size:11px;color:var(--muted)">${a.itens} serviço(s)</div></td>
+      <tbody>${d.ativ.map(a=>{const st=_statusEtapa(a,hoje); return `<tr>
+        <td><b>${esc(a.nome)}</b><div style="font-size:11px;color:var(--muted)">${a.itens} serviço(s) · ${nf(a.pct)}% executado</div></td>
+        <td><span class="chip" style="background:${st.cor}1f;color:${st.cor}">${st.lbl}</span></td>
         <td class="num">${money(a.valor)}</td>
         <td class="num"><span style="cursor:pointer;color:var(--blue);font-weight:600" onclick="editarDur('${esc(a.nome).replace(/'/g,"\\'")}')">${a.dur}d ✎</span></td>
         <td class="num">${fmt(dia(a.ini))}</td><td class="num">${fmt(dia(a.fim))}</td>
@@ -979,7 +1221,7 @@ function cronograma(){
               onclick="editarLink('${esc(a.nome).replace(/'/g,"\\'")}','${esc(v.p).replace(/'/g,"\\'")}')">${esc(v.p.slice(0,22))}
               <span class="lag-badge ${v.tipo==="SS"||v.tipo==="FF"?"par":""}">${v.label}</span></span>`).join(" ")
           : `<span style="color:var(--muted)">— início da obra</span>`}</td>
-        <td class="num">${a.critica?`<b style="color:#dc2626">crítica</b>`:a.folga+"d"}</td></tr>`).join("")}
+        <td class="num">${a.critica?`<b style="color:#dc2626">crítica</b>`:a.folga+"d"}</td></tr>`;}).join("")}
       </tbody></table></div>
     <div style="font-size:11.5px;color:var(--muted);margin-top:8px">
       <span class="lag-badge">TI</span> término→início ·
@@ -1052,68 +1294,309 @@ function gravarCrono(cfg){
   sb.from("obras").update({cronograma:cfg}).eq("id",OBRA.id).then(()=>{ OBRA.cronograma=cfg; cronograma(); pintarKPIs(); });
 }
 
-async function curvaS(){
+// ═════════════════════════════════════════════════════════════════════════════
+// CURVA S — três leituras na mesma tela
+//   PREVISTO   tracejado azul  · o desenho do cronograma que você montou
+//   REAL       cheio verde     · o que a equipe lançou, acumulado
+//   TENDÊNCIA  pontilhado âmbar· para onde isso vai se o ritmo não mudar
+// Ao fundo, as barras de desembolso mensal (previsto x realizado). Curva sozinha
+// esconde o que interessa na obra: em que MÊS o dinheiro sai e se a equipe está
+// produzindo no ritmo que o prazo exige.
+// ═════════════════════════════════════════════════════════════════════════════
+function _mesesGrade(){
+  const d0=OBRA.data_inicio? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
+  const d=_calcCrono(); const fim=d?d.fim:(Number(OBRA.prazo_dias)||180);
+  const out=[]; let c=new Date(d0.getFullYear(),d0.getMonth(),1);
+  const ultimo=new Date(d0.getTime()+fim*86400000);
+  while(c<=ultimo && out.length<72){
+    const fimM=new Date(c.getFullYear(),c.getMonth()+1,0,12);
+    out.push({ini:new Date(c), fim:fimM,
+      chave:`${c.getFullYear()}-${String(c.getMonth()+1).padStart(2,"0")}`,
+      curto:c.toLocaleDateString("pt-BR",{month:"short"}).replace(".","")+"/"+String(c.getFullYear()).slice(2),
+      rotulo:c.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}),
+      tIni:(c-d0)/86400000, tFim:(fimM-d0)/86400000});
+    c=new Date(c.getFullYear(),c.getMonth()+1,1);
+  }
+  return out;
+}
+function _seriesMensais(d){
+  const meses=_mesesGrade(); const hojeISO=_hoje();
+  let pvAnt=0, evAnt=0;
+  return meses.map(m=>{
+    const pv=_pvEm(d,m.tFim);
+    const its=itensEm(m.fim.toISOString().slice(0,10));
+    const ev=its.reduce((s,i)=>s+Number(i.valor_executado||0),0);
+    const o={...m, pvAc:pv, evAc:ev, pvMes:pv-pvAnt, evMes:ev-evAnt,
+      passou: m.fim.toISOString().slice(0,10)<=hojeISO};
+    pvAnt=pv; evAnt=ev; return o;
+  });
+}
+function curvaS(){
   const host=document.getElementById("abaCurva");
-  const d=_calcCrono();
-  if(!d||!d.total){ host.innerHTML=`<div class="vazio"><div class="ic">📈</div>Sem dados para a curva.</div>`; return; }
+  const E=evm(_hoje());
+  if(!E){ host.innerHTML=`<div class="vazio"><div class="ic">📈</div>Sem dados para a curva.</div>`; return; }
+  const d=E.d;
   const d0=OBRA.data_inicio? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
   const dia=n=>{const x=new Date(d0); x.setDate(x.getDate()+Math.round(n)); return x;};
-  const fmt=x=>x.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"});
-  // ── PREVISTA: sai do cronograma que você montou, não de uma reta ──
-  const prev=_curvaPrevista(d,60);
-  // ── REAL: do histórico de lançamentos ──
-  const {data:av}=await sb.from("obra_avancos").select("data_ref,pct,item_id").eq("obra_id",OBRA.id).order("data_ref");
-  const vmap={}; ITENS.forEach(i=>vmap[i.id]=Number(i.valor)||0);
-  const dias=[...new Set((av||[]).map(x=>x.data_ref))].sort();
-  const ult={}, real=[];
-  dias.forEach(dt=>{ (av||[]).filter(x=>x.data_ref===dt).forEach(x=>{ ult[x.item_id]=Number(x.pct); });
-    const ac=Object.keys(ult).reduce((s,k)=>s+(vmap[k]||0)*ult[k]/100,0);
-    real.push({t:(new Date(dt+"T00:00:00")-d0)/86400000, v:ac, pct:d.total>0?ac/d.total*100:0}); });
-  const W=900,H=330,PL=64,PR=18,PT=18,PB=42;
-  const X=t=>PL+(d.fim>0? Math.max(0,Math.min(1,t/d.fim))*(W-PL-PR):0);
+  const fmt=x=>x.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit"});
+  const meses=_seriesMensais(d);
+  const hoje=E.t;
+
+  // ── curvas ──
+  const prev=_curvaPrevista(d,90);
+  const real=meses.filter(m=>m.passou).map(m=>({t:m.tFim, pct:d.total>0?m.evAc/d.total*100:0, v:m.evAc}));
+  if(real.length&&Math.abs(real[real.length-1].t-hoje)>3) real.push({t:hoje, pct:d.total>0?E.EV/d.total*100:0, v:E.EV});
+  // tendência: do ponto de hoje até 100%, no ritmo medido
+  const tend=[];
+  if(E.EV>0&&hoje>0){
+    const ritmoDia=E.EV/hoje;
+    const tFim100 = ritmoDia>0 ? d.total/ritmoDia : d.fim*3;
+    for(let k=0;k<=24;k++){ const t=hoje+(tFim100-hoje)*k/24;
+      tend.push({t, pct:Math.min(100,(E.EV+ritmoDia*(t-hoje))/d.total*100)}); }
+  }
+  const tMax=Math.max(d.fim, tend.length?tend[tend.length-1].t:0)*1.02;
+
+  const W=980,H=380,PL=62,PR=54,PT=16,PB=46;
+  const X=t=>PL+(tMax>0? Math.max(0,Math.min(1,t/tMax)):0)*(W-PL-PR);
   const Y=p=>H-PB-(Math.max(0,Math.min(100,p))/100)*(H-PT-PB);
   const path=a=>a.map((p,i)=>`${i?"L":"M"}${X(p.t).toFixed(1)},${Y(p.pct).toFixed(1)}`).join(" ");
-  const area=`${path(prev)} L${X(prev[prev.length-1].t).toFixed(1)},${Y(0)} L${X(prev[0].t).toFixed(1)},${Y(0)} Z`;
-  const hoje=(Date.now()-d0.getTime())/86400000;
-  const pPrev=(()=>{ let ac=0; d.ativ.forEach(a=>{ac+=a.valor*Math.max(0,Math.min(1,(hoje-a.ini)/(a.dur||1)));});
-    return d.total>0?ac/d.total*100:0; })();
-  const pReal=real.length? real[real.length-1].pct : 0;
-  const desvio=pReal-pPrev;
-  const cls=desvio>=-2?"ok":desvio>=-10?"warn":"bad";
+  const area=prev.length?`${path(prev)} L${X(prev[prev.length-1].t).toFixed(1)},${Y(0)} L${X(prev[0].t).toFixed(1)},${Y(0)} Z`:"";
+
+  // barras mensais (escala própria à direita)
+  const maxMes=Math.max(1,...meses.map(m=>Math.max(m.pvMes,m.evMes)));
+  const hBar=p=>(p/maxMes)*(H-PT-PB)*0.42;
+  const barras=meses.map(m=>{
+    const x1=X(m.tIni), x2=X(m.tFim), w=Math.max(2,(x2-x1)*0.78), cx=x1+(x2-x1)*0.11;
+    const yb=H-PB;
+    return `<g>
+      <rect x="${cx}" y="${yb-hBar(m.pvMes)}" width="${w/2}" height="${hBar(m.pvMes)}" fill="#1792C0" opacity=".16"/>
+      <rect x="${cx+w/2}" y="${yb-hBar(m.evMes)}" width="${w/2}" height="${hBar(m.evMes)}" fill="#16a34a" opacity="${m.passou?".34":".10"}"/>
+      <title>${m.rotulo}\nPrevisto no mês: ${money(m.pvMes)}\n${m.passou?"Realizado no mês: "+money(m.evMes):"(mês futuro)"}</title></g>`;
+  }).join("");
+
+  const spiCls=E.spi>=0.98?"ok":E.spi>=0.9?"warn":"bad";
+  const atrCls=E.atrasoDias<=2?"ok":E.atrasoDias<=15?"warn":"bad";
+  const ritCls=E.ritmoNec<=E.ritmoReal*1.05?"ok":E.ritmoNec<=E.ritmoReal*1.35?"warn":"bad";
+  const dtProv=dia(E.fimProv);
+  const dtPrev=dia(d.fim);
+  const estouro=Math.round(E.fimProv-d.fim);
+
   host.innerHTML=`
-    <div class="kpis" style="margin-bottom:16px">
-      <div class="kpi"><div class="l">Previsto para hoje</div><div class="v">${nf(pPrev)}%</div>
-        <div class="s">${money(d.total*pPrev/100)}</div></div>
-      <div class="kpi ${pReal>=pPrev?"ok":""}"><div class="l">Executado real</div><div class="v">${nf(pReal)}%</div>
-        <div class="s">${money(d.total*pReal/100)}</div></div>
-      <div class="kpi ${cls}"><div class="l">Desvio</div><div class="v">${desvio>=0?"+":""}${nf(desvio)} p.p.</div>
-        <div class="s">${desvio>=0?"adiantado":"atrasado"} · ${money(Math.abs(d.total*desvio/100))}</div></div>
-      <div class="kpi"><div class="l">Conclusão prevista</div><div class="v" style="font-size:17px">${dia(d.fim).toLocaleDateString("pt-BR")}</div>
-        <div class="s">${Math.round(d.fim)} dias de obra</div></div>
+    <div class="kpis" style="margin-bottom:6px">
+      <div class="kpi ${atrCls}"><div class="l">${E.atrasoDias>=0?"Atraso acumulado":"Adiantado"}</div>
+        <div class="v">${Math.abs(E.atrasoDias)}<span style="font-size:14px;color:var(--muted)"> dias</span></div>
+        <div class="s">o cronograma previa esse volume em ${fmt(dia(E.t-E.atrasoDias))}</div></div>
+      <div class="kpi ${spiCls}"><div class="l">Desempenho (SPI)</div><div class="v">${E.spi.toFixed(2)}</div>
+        <div class="s">produziu ${nf(E.spi*100)}% do planejado no período</div></div>
+      <div class="kpi"><div class="l">Executado · previsto</div><div class="v" style="font-size:19px">${nf(d.total>0?E.EV/d.total*100:0)}%</div>
+        <div class="s">${money(E.EV)} de ${money(E.PV)} previstos</div></div>
+      <div class="kpi ${ritCls}"><div class="l">Ritmo necessário</div><div class="v" style="font-size:19px">${money(E.ritmoNec)}</div>
+        <div class="s">por mês · você vem fazendo ${money(E.ritmoReal)}</div></div>
+      <div class="kpi ${estouro<=0?"ok":estouro<=20?"warn":"bad"}"><div class="l">Término provável</div>
+        <div class="v" style="font-size:17px">${dtProv.toLocaleDateString("pt-BR")}</div>
+        <div class="s">cronograma ${dtPrev.toLocaleDateString("pt-BR")} · ${estouro>0?"+"+estouro+" dias":estouro<0?estouro+" dias":"em cima"}</div></div>
     </div>
-    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;min-width:640px">
+    ${_alertaRitmo(E)}
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;min-width:680px">
       <defs><linearGradient id="gP" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#1792C0" stop-opacity=".22"/><stop offset="100%" stop-color="#1792C0" stop-opacity="0"/>
+        <stop offset="0%" stop-color="#1792C0" stop-opacity=".20"/><stop offset="100%" stop-color="#1792C0" stop-opacity="0"/>
       </linearGradient></defs>
       ${[0,25,50,75,100].map(p=>`<line x1="${PL}" y1="${Y(p)}" x2="${W-PR}" y2="${Y(p)}" stroke="#eef2f7"/>
         <text x="${PL-9}" y="${Y(p)+4}" font-size="10.5" fill="#94a3b8" text-anchor="end">${p}%</text>`).join("")}
-      <path d="${area}" fill="url(#gP)"/>
+      ${barras}
+      ${area?`<path d="${area}" fill="url(#gP)"/>`:""}
       <path d="${path(prev)}" fill="none" stroke="#1792C0" stroke-width="2.6" stroke-dasharray="8,5"/>
+      ${tend.length>1?`<path d="${path(tend)}" fill="none" stroke="#d97706" stroke-width="2.2" stroke-dasharray="2,4"/>`:""}
       ${real.length>1?`<path d="${path(real)}" fill="none" stroke="#16a34a" stroke-width="3.2" stroke-linejoin="round"/>`:""}
-      ${real.map(p=>`<circle cx="${X(p.t)}" cy="${Y(p.pct)}" r="3.6" fill="#16a34a"><title>${fmt(dia(p.t))}: ${nf(p.pct)}% · ${money(p.v)}</title></circle>`).join("")}
-      ${hoje>=0&&hoje<=d.fim?`<line x1="${X(hoje)}" y1="${PT}" x2="${X(hoje)}" y2="${H-PB}" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5,4"/>
-        <text x="${X(hoje)+4}" y="${PT+11}" font-size="10.5" font-weight="700" fill="#dc2626">hoje</text>`:""}
-      ${[0,.25,.5,.75,1].map((f,i)=>`<text x="${X(d.fim*f)}" y="${H-16}" font-size="10.5" fill="#64748b" text-anchor="${i===0?"start":i===4?"end":"middle"}">${fmt(dia(d.fim*f))}</text>`).join("")}
+      ${real.map(p=>`<circle cx="${X(p.t)}" cy="${Y(p.pct)}" r="3.4" fill="#16a34a"><title>${fmt(dia(p.t))}: ${nf(p.pct)}% · ${money(p.v)}</title></circle>`).join("")}
+      ${hoje>=0&&hoje<=tMax?`<line x1="${X(hoje)}" y1="${PT}" x2="${X(hoje)}" y2="${H-PB}" stroke="#dc2626" stroke-width="1.5" stroke-dasharray="5,4"/>
+        <text x="${X(hoje)+4}" y="${PT+10}" font-size="10.5" font-weight="700" fill="#dc2626">hoje</text>`:""}
+      ${d.fim<=tMax?`<line x1="${X(d.fim)}" y1="${PT}" x2="${X(d.fim)}" y2="${H-PB}" stroke="#94a3b8" stroke-width="1.2"/>
+        <text x="${X(d.fim)-4}" y="${PT+10}" font-size="10" fill="#64748b" text-anchor="end">prazo</text>`:""}
+      ${E.atrasoDias>3&&hoje<=tMax?`<line x1="${X(E.t-E.atrasoDias)}" y1="${Y(d.total>0?E.EV/d.total*100:0)}" x2="${X(hoje)}" y2="${Y(d.total>0?E.EV/d.total*100:0)}"
+        stroke="#dc2626" stroke-width="1.2" stroke-dasharray="3,3"/>
+        <text x="${(X(E.t-E.atrasoDias)+X(hoje))/2}" y="${Y(d.total>0?E.EV/d.total*100:0)-7}" font-size="10" font-weight="700" fill="#dc2626" text-anchor="middle">${E.atrasoDias}d</text>`:""}
+      ${meses.filter((m,i)=>meses.length<=14||i%Math.ceil(meses.length/14)===0).map(m=>
+        `<text x="${X((m.tIni+m.tFim)/2)}" y="${H-16}" font-size="9.5" fill="#64748b" text-anchor="middle">${m.curto}</text>`).join("")}
     </svg>
-    <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px">
-      <span><b style="color:#1792C0">╌╌</b> Previsto — desenhado pelo cronograma que você montou (não é reta)</span>
-      <span><b style="color:#16a34a">━━</b> Real — acumulado dos lançamentos da equipe</span>
+    <div class="leg">
+      <span><i style="border-color:#1792C0;border-top-style:dashed"></i>Previsto pelo cronograma</span>
+      <span><i style="border-color:#16a34a"></i>Real executado</span>
+      <span><i style="border-color:#d97706;border-top-style:dotted"></i>Tendência no ritmo atual</span>
+      <span><span class="sq" style="background:#1792C0;opacity:.3"></span>Desembolso previsto/mês</span>
+      <span><span class="sq" style="background:#16a34a;opacity:.45"></span>Realizado/mês</span>
     </div>
+    <h3 style="font-size:14px;color:var(--navy);margin:22px 0 8px">Fechamento mês a mês</h3>
+    <div style="overflow:auto;max-height:340px"><table>
+      <thead><tr><th>Mês</th><th class="num">Previsto no mês</th><th class="num">Realizado no mês</th>
+        <th class="num">Acum. previsto</th><th class="num">Acum. real</th><th class="num">Desvio</th></tr></thead>
+      <tbody>${meses.map(m=>{
+        const dv=d.total>0?(m.evAc-m.pvAc)/d.total*100:0;
+        const cor=!m.passou?"#94a3b8":dv>=-2?"#16a34a":dv>=-10?"#d97706":"#dc2626";
+        return `<tr${m.passou?"":' style="opacity:.55"'}>
+          <td><b>${m.rotulo.charAt(0).toUpperCase()+m.rotulo.slice(1)}</b>${m.passou?"":' <span style="font-size:10.5px;color:#dc2626;font-weight:700">futuro</span>'}</td>
+          <td class="num" style="color:var(--muted)">${money(m.pvMes)}</td>
+          <td class="num"><b>${m.passou?money(m.evMes):"—"}</b></td>
+          <td class="num" style="color:var(--muted)">${nf(d.total>0?m.pvAc/d.total*100:0)}%</td>
+          <td class="num"><b>${m.passou?nf(d.total>0?m.evAc/d.total*100:0)+"%":"—"}</b></td>
+          <td class="num"><b style="color:${cor}">${m.passou?(dv>=0?"+":"")+nf(dv)+" p.p.":"—"}</b></td>
+        </tr>`;}).join("")}
+      </tbody></table></div>
     <div class="msg info" style="margin-top:14px">
-      A curva prevista muda quando você <b>ajusta durações ou vínculos na aba Cronograma</b>.
-      Se as duas se afastam, a diferença em reais aparece no cartão <b>Desvio</b> — é o quanto de obra
-      deixou de ser feito (ou foi adiantado) em relação ao plano.
+      A curva prevista é o desenho do <b>seu</b> cronograma — muda quando você ajusta durações ou vínculos na aba Cronograma.
+      O <b>atraso em dias</b> responde a pergunta que o cliente faz: o volume de obra que existe hoje era o previsto
+      para ${fmt(dia(E.t-E.atrasoDias))}, ou seja, ${Math.abs(E.atrasoDias)} dias ${E.atrasoDias>=0?"atrás":"à frente"}.
     </div>`;
+}
+// Frase única, sem rodeio, sobre o que o ritmo está dizendo.
+function _alertaRitmo(E){
+  if(E.diasRest<=0) return `<div class="alertas"><div class="al a"><span class="ic">⏳</span><div>
+    <b>A data de término do cronograma já passou</b> e restam ${money(E.restante)} de obra.
+    Renegocie o prazo ou registre o aditivo — o cronograma atual não descreve mais a realidade.</div></div></div>`;
+  if(E.EV<=0) return `<div class="alertas"><div class="al a"><span class="ic">👋</span><div>
+    <b>Nenhum avanço lançado ainda.</b> Volte os meses no seletor da aba Serviços e preencha o que já foi executado —
+    a curva e o atraso só ficam confiáveis depois disso.</div></div></div>`;
+  const razao=E.ritmoReal>0? E.ritmoNec/E.ritmoReal : 99;
+  if(razao<=1.05) return `<div class="alertas"><div class="al g"><span class="ic">✅</span><div>
+    <b>Ritmo compatível com o prazo.</b> Mantendo ${money(E.ritmoReal)} por mês, a obra fecha dentro do contrato.</div></div></div>`;
+  const cls=razao<=1.35?"a":"r";
+  return `<div class="alertas"><div class="al ${cls}"><span class="ic">${cls==="r"?"🚨":"⚠"}</span><div>
+    Para fechar na data do cronograma você precisa produzir <b>${money(E.ritmoNec)} por mês</b> nos ${Math.round(E.diasRest)} dias que restam.
+    O ritmo medido até aqui é <b>${money(E.ritmoReal)}</b> — ou seja, <b>${razao.toFixed(1)}× mais rápido</b> do que vem andando.
+    ${cls==="r"?"Nesse patamar, o prazo não se sustenta sem reforço de equipe ou revisão de escopo.":"Dá para recuperar, mas exige reforço já no próximo mês."}</div></div></div>`;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PREVISÃO — o que se pretende executar no mês que vem
+// Diferente do avanço (que é fato, vai para o log e nunca some), a previsão é
+// PLANO: muda o tempo todo e não pode contaminar a medição. Por isso mora no
+// jsonb da obra (obras.cronograma.plano), separada do histórico.
+// A meta de cada serviço já vem sugerida pelo cronograma — quem planeja parte de
+// algo pronto e ajusta, em vez de encarar uma tabela em branco.
+// Depois que o mês passa, a mesma tela vira prestação de contas: meta x realizado.
+// ═════════════════════════════════════════════════════════════════════════════
+let PREV_MES=null;
+function _proxMes(){ const d=new Date(); d.setMonth(d.getMonth()+1);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function _plano(){ const c=(OBRA.cronograma&&OBRA.cronograma.plano)||{}; return c; }
+function _planoMes(m){ return _plano()[m]||{}; }
+// meta sugerida = o que o cronograma diz que a etapa daquele serviço terá feito
+// no fim do mês. Nunca sugere menos do que já está executado.
+function _metaSugerida(mes){
+  const d=_calcCrono(); if(!d) return {};
+  const d0=OBRA.data_inicio? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
+  const [a,m]=mes.split("-").map(Number);
+  const t=(new Date(a,m,0,12)-d0)/86400000;
+  const porFase={}; d.ativ.forEach(x=>porFase[x.nome]=Math.max(0,Math.min(1,(t-x.ini)/(x.dur||1)))*100);
+  const jaFeito=pctMapa(_fimDoMes(mes));
+  const out={};
+  ITENS.forEach(i=>{ const alvo=porFase[i.fase||"Sem etapa"];
+    if(alvo==null) return;
+    out[i.id]=Math.max(Math.round(alvo), Math.round(jaFeito[i.id]||0)); });
+  return out;
+}
+function previsao(){
+  const host=document.getElementById("abaPrev");
+  const d=_calcCrono();
+  if(!d||!d.total){ host.innerHTML=`<div class="vazio"><div class="ic">🔮</div>Importe a planilha para poder planejar.</div>`; return; }
+  if(!PREV_MES) PREV_MES=_proxMes();
+  const mes=PREV_MES, hojeC=_compHoje();
+  const passou = mes<hojeC;
+  const fimMes=_fimDoMes(mes);
+  const [ay,am]=mes.split("-").map(Number);
+  const antISO=new Date(ay,am-1,0).toISOString().slice(0,10);
+  const base=pctMapa(antISO);                 // ponto de partida: fim do mês anterior
+  const real=pctMapa(fimMes);                 // o que de fato aconteceu (se já passou)
+  const salvo=_planoMes(mes), sug=_metaSugerida(mes);
+  const metaDe=id => salvo[id]!==undefined ? salvo[id] : (sug[id]||0);
+
+  let vBase=0,vMeta=0,vReal=0;
+  const linhas=ITENS.map(i=>{
+    const v=Number(i.valor)||0, b=base[i.id]||0, mt=Math.max(b,metaDe(i.id)), rl=real[i.id]||0;
+    vBase+=v*b/100; vMeta+=v*mt/100; vReal+=v*rl/100;
+    return {...i, b, mt, rl, v, mine:salvo[i.id]!==undefined};
+  });
+  const aProduzir=vMeta-vBase, produzido=vReal-vBase;
+  // meses disponíveis: do mês corrente até o fim do cronograma
+  const opts=_mesesGrade().filter(m=>m.chave>=hojeC || m.chave>=_compHoje()).map(m=>
+    `<option value="${m.chave}" ${m.chave===mes?"selected":""}>${m.rotulo.replace(/^./,x=>x.toUpperCase())}</option>`).join("");
+  const optsTodos=_mesesGrade().map(m=>
+    `<option value="${m.chave}" ${m.chave===mes?"selected":""}>${m.rotulo.replace(/^./,x=>x.toUpperCase())}${m.chave<hojeC?" (encerrado)":""}</option>`).join("");
+
+  const mov=linhas.filter(l=>l.mt>l.b);
+  const cumpr = passou&&aProduzir>0 ? produzido/aProduzir*100 : null;
+  const E=evm(_hoje());
+  const capac = E&&E.ritmoReal>0 ? E.ritmoReal : null;
+  const viavel = capac!=null ? aProduzir/capac : null;
+
+  host.innerHTML=`
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+      <label style="margin:0;font-weight:700;color:var(--navy)">Planejar
+        <select id="prevSel" style="margin-left:6px;max-width:250px" onchange="PREV_MES=this.value;previsao()">${optsTodos}</select></label>
+      <button class="btn btn-out" style="padding:7px 13px;font-size:12.5px" onclick="prevSugerir()">↺ Usar sugestão do cronograma</button>
+      ${Object.keys(salvo).length?`<button class="btn btn-out" style="padding:7px 13px;font-size:12.5px" onclick="prevLimpar()">Apagar meu plano deste mês</button>`:""}
+      <span style="font-size:12px;color:var(--muted);margin-left:auto">A previsão não entra na medição — é plano, não avanço.</span>
+    </div>
+    ${passou?`<div class="msg info" style="margin-top:0">
+      📊 <b>${_compRotulo(mes)} já encerrou.</b> Esta tela virou prestação de contas: a coluna
+      <b>Realizado</b> mostra o que de fato aconteceu contra o que você tinha planejado.</div>`:""}
+    <div class="kpis">
+      <div class="kpi"><div class="l">Ponto de partida</div><div class="v" style="font-size:19px">${money(vBase)}</div>
+        <div class="s">executado até ${new Date(antISO+"T00:00:00").toLocaleDateString("pt-BR")}</div></div>
+      <div class="kpi"><div class="l">Meta do mês</div><div class="v" style="font-size:19px">${money(aProduzir)}</div>
+        <div class="s">${mov.length} serviço(s) com avanço planejado</div></div>
+      <div class="kpi"><div class="l">Acumulado ao fim do mês</div><div class="v">${nf(d.total>0?vMeta/d.total*100:0)}%</div>
+        <div class="s">${money(vMeta)} de ${money(d.total)}</div></div>
+      ${passou?`<div class="kpi ${cumpr==null?"":cumpr>=95?"ok":cumpr>=70?"warn":"bad"}">
+        <div class="l">Cumprimento</div><div class="v">${cumpr==null?"—":nf(cumpr)+"%"}</div>
+        <div class="s">realizou ${money(produzido)} do que planejou</div></div>`
+      :(viavel!=null?`<div class="kpi ${viavel<=1.1?"ok":viavel<=1.5?"warn":"bad"}">
+        <div class="l">Contra o seu ritmo</div><div class="v">${viavel.toFixed(1)}×</div>
+        <div class="s">seu ritmo médio é ${money(capac)}/mês</div></div>`:"")}
+    </div>
+    ${!passou&&viavel!=null&&viavel>1.5?`<div class="alertas"><div class="al a"><span class="ic">⚠</span><div>
+      Esta meta é <b>${viavel.toFixed(1)}× o ritmo que a obra vem tendo</b> (${money(capac)}/mês).
+      Planejar acima da capacidade real só adia a conversa difícil — ou entra reforço, ou a meta precisa ser outra.</div></div></div>`:""}
+    <div style="overflow:auto;max-height:56vh"><table>
+      <thead><tr><th>Serviço</th><th class="num">Valor</th>
+        <th class="num">Início do mês</th><th style="width:130px">Meta no fim do mês</th>
+        <th class="num">A produzir</th>${passou?'<th class="num">Realizado</th><th class="num">Diferença</th>':""}</tr></thead>
+      <tbody>${(()=>{let h="",f=null; linhas.forEach(l=>{
+        if(l.fase&&l.fase!==f){ f=l.fase; h+=`<tr class="fase"><td colspan="${passou?7:5}">${esc(l.fase)}</td></tr>`; }
+        const prod=l.v*(l.mt-l.b)/100, feito=l.v*(l.rl-l.b)/100, dif=l.rl-l.mt;
+        h+=`<tr${l.mt<=l.b?' style="opacity:.5"':""}>
+          <td><b>${esc(l.descricao)}</b>${l.mine?' <span class="chip man" title="meta ajustada por você">manual</span>':""}
+            <div style="font-size:11px;color:var(--muted)">${esc(l.codigo||"—")}</div></td>
+          <td class="num">${money(l.v)}</td>
+          <td class="num" style="color:var(--muted)">${nf(l.b)}%</td>
+          <td><input class="meta-in" type="number" min="${Math.ceil(l.b)}" max="100" step="1" value="${Math.round(l.mt)}"
+                onchange="prevMeta('${l.id}',this.value)"> %</td>
+          <td class="num">${prod>0?money(prod):"—"}</td>
+          ${passou?`<td class="num"><b>${nf(l.rl)}%</b><div style="font-size:11px;color:var(--muted)">${feito>0?money(feito):"—"}</div></td>
+            <td class="num">${dif?`<span class="dlt ${dif>0?"up":"dn"}">${dif>0?"+":""}${nf(dif)} p.p.</span>`:'<span class="dlt eq">na meta</span>'}</td>`:""}
+        </tr>`;}); return h;})()}
+      </tbody></table></div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:10px">
+      A meta já vem preenchida pelo cronograma — mexa só no que for diferente. Nada aqui altera a medição:
+      quando o mês chegar, você lança o avanço real na aba <b>Serviços</b> e volta aqui para comparar.
+    </div>`;
+}
+function prevMeta(id,v){
+  const n=Math.max(0,Math.min(100,parseFloat(String(v).replace(",","."))||0));
+  const cfg=_cronoCfg(); cfg.plano=cfg.plano||{}; cfg.plano[PREV_MES]=cfg.plano[PREV_MES]||{};
+  cfg.plano[PREV_MES][id]=Math.round(n*100)/100;
+  sb.from("obras").update({cronograma:cfg}).eq("id",OBRA.id).then(({error})=>{
+    if(error){ alert("Não consegui salvar o plano: "+error.message); return; }
+    OBRA.cronograma=cfg; previsao(); });
+}
+function prevSugerir(){
+  const cfg=_cronoCfg(); cfg.plano=cfg.plano||{}; cfg.plano[PREV_MES]=_metaSugerida(PREV_MES);
+  sb.from("obras").update({cronograma:cfg}).eq("id",OBRA.id).then(()=>{ OBRA.cronograma=cfg; previsao(); });
+}
+function prevLimpar(){
+  if(!confirm("Apagar as metas que você ajustou em "+_compRotulo(PREV_MES)+"?")) return;
+  const cfg=_cronoCfg(); if(cfg.plano) delete cfg.plano[PREV_MES];
+  sb.from("obras").update({cronograma:cfg}).eq("id",OBRA.id).then(()=>{ OBRA.cronograma=cfg; previsao(); });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1122,26 +1605,13 @@ async function curvaS(){
 // início mostra o que foi feito no período e o acumulado ao fim dele, comparado
 // com o que o cronograma previa para a mesma data.
 // ═════════════════════════════════════════════════════════════════════════════
-function _mesesObra(){
-  const d0=OBRA.data_inicio? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
-  const d=_calcCrono(); const fim=d?d.fim:(Number(OBRA.prazo_dias)||180);
-  const out=[]; let c=new Date(d0.getFullYear(),d0.getMonth(),1);
-  const ultimo=new Date(d0.getTime()+fim*86400000);
-  while(c<=ultimo && out.length<60){
-    const ini=new Date(c), fimM=new Date(c.getFullYear(),c.getMonth()+1,0,23,59,59);
-    out.push({ini, fim:fimM, chave:`${c.getFullYear()}-${String(c.getMonth()+1).padStart(2,"0")}`,
-      rotulo:c.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})});
-    c=new Date(c.getFullYear(),c.getMonth()+1,1);
-  }
-  return out;
-}
-async function mesAmes(){
+function _mesesObra(){ return _mesesGrade(); }
+function mesAmes(){
   const host=document.getElementById("abaMes");
   const d=_calcCrono();
   if(!d||!d.total){ host.innerHTML=`<div class="vazio"><div class="ic">📆</div>Sem dados para o mês a mês.</div>`; return; }
   const d0=OBRA.data_inicio? new Date(OBRA.data_inicio+"T00:00:00") : new Date();
-  const {data:av}=await sb.from("obra_avancos").select("data_ref,pct,item_id,autor_email,criado_em")
-    .eq("obra_id",OBRA.id).order("data_ref");
+  const av=AVANCOS;   // já carregado; não vale um round-trip a mais só para reler o mesmo log
   const vmap={},nmap={}; ITENS.forEach(i=>{vmap[i.id]=Number(i.valor)||0; nmap[i.id]=i.descricao;});
   const meses=_mesesObra();
   // acumulado real ao FIM de cada mês = último % de cada item até aquela data
@@ -1174,8 +1644,8 @@ async function mesAmes(){
       <tbody>${linhas.map(l=>{
         const dv=l.pctAcum-l.pctPrev;
         const cor=!l.passou?"#94a3b8":dv>=-2?"#16a34a":dv>=-10?"#d97706":"#dc2626";
-        return `<tr${l.passou?"":' style="opacity:.5"'}>
-          <td><b>${l.rotulo.charAt(0).toUpperCase()+l.rotulo.slice(1)}</b>${l.passou?"":' <span style="font-size:10.5px;color:var(--muted)">(futuro)</span>'}</td>
+        return `<tr${l.passou?"":' style="opacity:.62"'}>
+          <td><b>${l.rotulo.charAt(0).toUpperCase()+l.rotulo.slice(1)}</b>${l.passou?"":' <span class="chip" style="background:#fee2e2;color:#991b1b">futuro</span>'}</td>
           <td class="num">${l.noMes>0?money(l.noMes):"—"}</td>
           <td><div class="bar"><i style="width:${Math.min(100,Math.abs(l.noMes)/maxMes*100)}%;background:${l.noMes>0?"var(--blue)":"#e8eef4"}"></i></div></td>
           <td class="num"><b>${nf(l.pctAcum)}%</b></td>
