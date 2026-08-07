@@ -96,25 +96,42 @@ td.num{text-align:right;white-space:nowrap}
 .av{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .av .u{font-size:11.5px;color:var(--muted);font-weight:600}
 .qtd-in{width:92px;text-align:right;padding:5px 7px;font-size:13px}
+/* campo de digitacao das duas colunas — o do acumulado vem em negrito porque
+   e o numero que representa a obra; o do avanco e um rascunho do mes.
+   min-width:0 é o que impede o input de "empurrar" a unidade para a linha de
+   baixo: sem ele o input tem largura intrínseca e o flex não deixa encolher. */
+.c-av .av,.c-ac .av{flex-wrap:nowrap;gap:5px}
+.ex-in{flex:1 1 auto;min-width:0;width:100%;text-align:right;padding:5px 6px;font-size:13px}
+.c-av .u,.c-ac .u{flex:none}
+.ex-in.forte{font-weight:700;color:var(--navy);background:#fff}
+.ex-in::placeholder{color:#b8c4d0}
+.nomes{font-size:10.5px;margin-top:4px;font-weight:700}
+.nomes.up{color:#166534}.nomes.dn{color:#991b1b}
+.nomes.vazio{color:#a9b6c4;font-weight:500;font-style:italic}
 .pctcalc{font-size:12px;font-weight:800;color:var(--blue);background:#eaf6fb;border-radius:20px;padding:2px 9px}
-.avsub{font-size:10.5px;color:var(--muted);margin-top:3px}
+.avsub{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.35}
+.pcts{color:var(--blue);font-weight:800;font-size:11.5px}
 .mais{font-size:16px;font-weight:800;color:var(--green);line-height:1}
 .acum{font-size:11.5px;font-weight:700;color:var(--navy);background:#eef2f7;border-radius:20px;padding:2px 9px;white-space:nowrap}
-/* ── cabeçalho: o seletor de modo mora na própria coluna ── */
+/* ── cabeçalho e larguras ──
+   Avanço e Acumulado são DUAS COLUNAS, não um seletor. O usuário precisa ver os
+   dois números ao mesmo tempo: um é o que ele digita, o outro é a consequência.
+   Se fosse um botão que alterna, ele teria de clicar para descobrir se o total
+   ficou certo — e é exatamente aí que o erro de digitação passa batido. */
 th{vertical-align:bottom;line-height:1.32}
-.th-serv{width:auto;min-width:280px}
-.th-qtd{width:78px}
-.th-val{width:100px}
-.th-exec{width:212px}
-.th-rs{width:100px}
-.th-sit{width:92px}
-/* controle segmentado dentro do cabeçalho — os dois lado a lado, sem quebrar */
-.thseg{display:inline-flex;white-space:nowrap;background:rgba(0,0,0,.26);border-radius:20px;
-  padding:2px;margin-top:3px;border:1px solid rgba(255,255,255,.10)}
-.thmodo{cursor:pointer;color:rgba(255,255,255,.62);transition:.14s;white-space:nowrap;
-  padding:3px 11px;border-radius:20px;text-transform:none;font-size:11.5px;letter-spacing:.1px;font-weight:600}
-.thmodo:hover{color:#fff}
-.thmodo.on{background:#4db8e8;color:#04283a;font-weight:800}
+.th-serv{width:auto;min-width:260px}
+.th-qtd{width:76px}
+.th-val{width:96px}
+.th-av{width:132px;background:linear-gradient(180deg,transparent,rgba(77,184,232,.16))}
+.th-ac{width:164px;background:linear-gradient(180deg,transparent,rgba(77,184,232,.16))}
+.thsub{display:block;font-size:9.5px;font-weight:600;letter-spacing:.3px;
+  color:rgba(255,255,255,.60);text-transform:none;margin-top:1px}
+.th-rs{width:98px}
+.th-sit{width:90px}
+/* a dupla de colunas ganha um fundo levemente distinto: é a zona de digitação */
+td.c-av,td.c-ac{background:#f7fbfd}
+td.c-av{border-left:2px solid #d8ecf6}
+td.c-ac{border-right:2px solid #d8ecf6}
 /* ── níveis da EAP: grupo (prédio/frente) e subgrupo (etapa) ── */
 tr.grupo td{background:linear-gradient(90deg,var(--navy),#0d4763);color:#fff;padding:9px 10px;
   border-bottom:0;position:relative}
@@ -281,19 +298,8 @@ tr.fase td::before{content:"";position:absolute;left:11px;top:50%;width:5px;heig
               <th class="th-serv">Serviço</th>
               <th class="num th-qtd">Qtd do<br>contrato</th>
               <th class="num th-val">Valor</th>
-              <th class="th-exec">
-                <!-- O seletor É o cabeçalho: a coluna anuncia o que ela recebe.
-                     Rótulos curtos de propósito — "Avanço no período" e "Executado
-                     acumulado" lado a lado não cabem em largura de coluna, e
-                     empilhados viram duas linhas que parecem erro de layout.
-                     O texto completo fica no title de cada um. -->
-                <div class="thseg">
-                  <span class="thmodo" data-modo="avanco" onclick="trocarModo('avanco')"
-                    title="Avanço no período — digite só o que andou; o sistema soma ao acumulado">Avanço</span><span
-                        class="thmodo" data-modo="acum" onclick="trocarModo('acum')"
-                    title="Executado acumulado — digite o total executado até aqui">Acumulado</span>
-                </div>
-              </th>
+              <th class="num th-av" title="Quanto andou NESTE período. Digite só o que avançou — o sistema soma sozinho.">Avanço<span class="thsub">no período</span></th>
+              <th class="th-ac" title="Total executado até aqui. É calculado, mas continua editável: se você errar o avanço, corrija o total direto neste campo.">Executado<span class="thsub">acumulado</span></th>
               <th class="num th-rs">R$<br>executado</th>
               <th class="th-sit">Situação</th>
             </tr></thead>
@@ -996,7 +1002,7 @@ function pintarItens(){
     (!q||String(i.descricao).toLowerCase().includes(q)||String(i.codigo||"").toLowerCase().includes(q))&&
     (!ff||i.fase===ff)&&(!fs||sit(i)===fs)&&(!ft||(i.tipo_custo||"direto")===ft));
   if(!lista.length){ document.getElementById("tbItens").innerHTML=
-    `<tr><td colspan="6" class="vazio">Nenhum serviço com esse filtro.</td></tr>`; return; }
+    `<tr><td colspan="7" class="vazio">Nenhum serviço com esse filtro.</td></tr>`; return; }
   // totais por grupo, para o cabeçalho mostrar peso e avanço da frente de obra
   const porGrupo={};
   its.forEach(x=>{ const g=_partesEAP(x).grupo||"—";
@@ -1009,13 +1015,13 @@ function pintarItens(){
       gAtual=P.grupo; sAtual=null;
       const t=porGrupo[P.grupo]||{v:0,e:0};
       const pg=t.v>0?t.e/t.v*100:0;
-      html+=`<tr class="grupo"><td colspan="6">
+      html+=`<tr class="grupo"><td colspan="7">
         <span class="gnome">${esc(P.grupo)}</span>
         <span class="gval">${money(t.v)}</span>
         <span class="gpct">${nf(pg)}%</span>
         <span class="gbar"><i style="width:${Math.min(100,pg)}%"></i></span></td></tr>`;
     }
-    if(P.sub&&P.sub!==sAtual){ sAtual=P.sub; html+=`<tr class="fase"><td colspan="6">${esc(P.sub)}</td></tr>`; }
+    if(P.sub&&P.sub!==sAtual){ sAtual=P.sub; html+=`<tr class="fase"><td colspan="7">${esc(P.sub)}</td></tr>`; }
     else if(!P.sub&&!P.grupo&&sAtual!==null){ sAtual=null; }
     const p=Number(i.pct)||0, s=sit(i);
     const pa=mAnt[i.id]||0, dl=Math.round((p-pa)*100)/100;
@@ -1030,13 +1036,12 @@ function pintarItens(){
         <div style="font-size:11.5px;color:var(--muted)">${esc(i.codigo||"—")}</div>${quem}</td>
       <td class="num">${nf(i.quantidade)}<div style="font-size:11px;color:var(--muted)">${esc(i.unidade||"")}</div></td>
       <td class="num">${money(i.valor)}</td>
-      <td>${_celulaAvanco(i,p,dl,fut)}</td>
+      ${_celsExec(i,p,dl,fut)}
       <td class="num">${money(i.valor_executado)}</td>
       <td><span class="chip ${s}">${lbl}</span></td>
     </tr>`;
   });
   document.getElementById("tbItens").innerHTML=html;
-  _pintarCabecalhoExec();
 }
 // ═════════════════════════════════════════════════════════════════════════════
 // COMPETÊNCIA — a data-base da tela
@@ -1195,52 +1200,64 @@ const _nfQ=(v,q)=>(Number(v)||0).toLocaleString("pt-BR",
 // existe e grava o acumulado. O banco continua guardando acumulado — é o que
 // permite ler a obra em qualquer data —, mas a entrada passa a ser incremental.
 // ═════════════════════════════════════════════════════════════════════════════
-let MODO_LANC = "avanco";   // "avanco" | "acum"
-function trocarModo(m){
-  MODO_LANC = m;
-  pintarItens();   // pintarItens já reacende o cabeçalho
-}
-function _pintarCabecalhoExec(){
-  document.querySelectorAll(".thmodo[data-modo]").forEach(e=>
-    e.classList.toggle("on", e.dataset.modo===MODO_LANC));
-}
-function _celulaAvanco(i,p,dl,fut){
+// Devolve AS DUAS CÉLULAS (avanço e acumulado) de uma vez, porque elas são a
+// mesma informação vista de dois lados e precisam ficar em sintonia.
+//
+// Por que o acumulado continua editável, se ele é calculado?
+//   Porque o avanço é digitado por gente com pressa em canteiro de obra. Quem
+//   quis lançar 12 e lançou 120 precisa de um lugar para desfazer — e o lugar
+//   natural é o próprio total, que é o número que ficou errado. Sem isso, a
+//   única saída seria lançar um avanço negativo de -108, o que ninguém faz de
+//   cabeça. O log em obra_avancos guarda as duas entradas, então a correção
+//   fica registrada em vez de apagar história.
+function _celsExec(i,p,dl,fut){
   const q=Number(i.quantidade)||0, un=esc(i.unidade||"");
   const barra=`<div class="bar" style="margin-top:6px"><i style="width:${Math.min(100,p)}%"></i></div>`;
-  const delta=dl?`<span class="dlt ${dl>0?"up":"dn"}" title="avanço nesta competência">${dl>0?"+":""}${nf(dl)} p.p.</span>`:"";
   const trava=fut?"disabled title='Mês futuro — use a aba Previsão'":"";
-  const avanco = MODO_LANC==="avanco";
+  // O que já entrou nesta competência: fica na coluna do AVANÇO, que é onde a
+  // pergunta "eu já lancei esse mês?" nasce.
+  const jaNoMes = dl
+    ? `<div class="nomes ${dl>0?"up":"dn"}" title="já lançado nesta competência">${dl>0?"+":""}${nf(dl)} p.p. no mês</div>`
+    : `<div class="nomes vazio">sem lançamento no mês</div>`;
 
   if(!_temQtd(i)){   // sem quantidade contratada: só resta o percentual
-    return avanco
-      ? `<div class="av"><span class="mais">+</span>
-          <input class="pct-in" type="text" inputmode="decimal" placeholder="0" value="" ${trava}
+    return `<td class="c-av">
+        <div class="av"><span class="mais">+</span>
+          <input class="ex-in" type="text" inputmode="decimal" placeholder="0" value="" ${trava}
             onchange="lancarDelta('${i.id}',this.value,this,'pct')"
-            title="Quanto avançou neste período, em pontos percentuais"><span class="u">%</span>
-          <span class="acum" title="acumulado após somar">= ${nf(p)}%</span>${delta}</div>
-        <div class="avsub">serviço sem quantitativo — informe o avanço em %</div>${barra}`
-      : `<div class="av"><input class="pct-in" type="number" min="0" max="100" step="1" value="${nf0(p)}" ${trava}
-            onchange="lancar('${i.id}',this.value,this)"><span class="u">%</span>${delta}</div>
-        <div class="avsub">serviço sem quantitativo — informe o percentual acumulado</div>${barra}`;
+            title="Quanto avançou neste período, em pontos percentuais"><span class="u">%</span></div>
+        ${jaNoMes}</td>
+      <td class="c-ac">
+        <div class="av">
+          <input class="ex-in forte" type="text" inputmode="decimal" value="${nf(p)}" ${trava}
+            onchange="lancarPct('${i.id}',this.value,this)"
+            title="Total acumulado. Errou o avanço? Corrija o total aqui."><span class="u">%</span></div>
+        <div class="avsub">serviço sem quantitativo</div>${barra}</td>`;
   }
 
   const feito=q*p/100, falta=Math.max(0,q-feito);
-  return avanco
-    ? `<div class="av"><span class="mais">+</span>
-        <input class="qtd-in" type="text" inputmode="decimal" placeholder="0" value="" ${trava}
+  return `<td class="c-av">
+      <div class="av"><span class="mais">+</span>
+        <input class="ex-in" type="text" inputmode="decimal" placeholder="0" value="" ${trava}
           onchange="lancarDelta('${i.id}',this.value,this,'qtd')"
           title="Quanto avançou neste período, na unidade da planilha">
-        <span class="u">${un}</span>
-        <span class="acum" title="acumulado após somar">= ${_nfQ(feito,q)} ${un}</span>
-        <span class="pctcalc">${nf(p)}%</span>${delta}</div>
-      <div class="avsub">de ${_nfQ(q,q)} ${un} · falta ${_nfQ(falta,q)} ${un}</div>${barra}`
-    : `<div class="av">
-        <input class="qtd-in" type="text" inputmode="decimal" value="${_nfQ(feito,q)}" ${trava}
+        <span class="u">${un}</span></div>
+      ${jaNoMes}</td>
+    <td class="c-ac">
+      <div class="av">
+        <input class="ex-in forte" type="text" inputmode="decimal" value="${_nfQ(feito,q)}" ${trava}
           onchange="lancarQtd('${i.id}',this.value,this)"
-          title="Total já executado, na unidade da planilha">
-        <span class="u">${un}</span>
-        <span class="pctcalc" title="calculado a partir do quantitativo">${nf(p)}%</span>${delta}</div>
-      <div class="avsub">de ${_nfQ(q,q)} ${un} · falta ${_nfQ(falta,q)} ${un}</div>${barra}`;
+          title="Total executado até aqui. Errou o avanço? Corrija o total aqui.">
+        <span class="u">${un}</span></div>
+      <div class="avsub"><b class="pcts">${nf(p)}%</b> · ${p>=100?"concluído":`falta ${_nfQ(falta,q)} ${un}`}</div>${barra}</td>`;
+      // O "de ${_nfQ(q,q)} ${un}" saiu daqui de propósito: a quantidade contratada
+      // já tem coluna própria ao lado. Repetir custava largura e não informava nada.
+}
+// Correção do acumulado em percentual (serviços sem quantitativo).
+async function lancarPct(itemId,valor,el){
+  const v=_numBR(valor);
+  if(!isFinite(v)||v<0||v>100){ alert("O percentual acumulado precisa ficar entre 0 e 100."); pintarItens(); return; }
+  await lancar(itemId, Math.round(v*100)/100, el);
 }
 // Lança a partir da QUANTIDADE executada acumulada.
 async function lancarQtd(itemId,valor,el){
