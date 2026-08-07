@@ -98,6 +98,14 @@ td.num{text-align:right;white-space:nowrap}
 .qtd-in{width:92px;text-align:right;padding:5px 7px;font-size:13px}
 .pctcalc{font-size:12px;font-weight:800;color:var(--blue);background:#eaf6fb;border-radius:20px;padding:2px 9px}
 .avsub{font-size:10.5px;color:var(--muted);margin-top:3px}
+.mais{font-size:16px;font-weight:800;color:var(--green);line-height:1}
+.acum{font-size:11.5px;font-weight:700;color:var(--navy);background:#eef2f7;border-radius:20px;padding:2px 9px;white-space:nowrap}
+.modo{display:inline-flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;background:#fff}
+.modo button{background:#fff;border:0;padding:7px 13px;font-size:12.5px;font-weight:700;color:var(--muted);
+  cursor:pointer;font-family:inherit;white-space:nowrap}
+.modo button:hover{background:#f1f5f9}
+.modo button.on{background:var(--navy);color:#fff}
+.modo button+button{border-left:1px solid var(--border)}
 .lixo{background:#fff;border:1.5px solid var(--border);color:#94a3b8;border-radius:8px;width:36px;height:36px;
   font-size:15px;cursor:pointer;flex:none;font-family:inherit;transition:.15s}
 .lixo:hover{border-color:var(--red);color:var(--red);background:#fef2f2}
@@ -226,6 +234,12 @@ td.num{text-align:right;white-space:nowrap}
             <button onclick="compMover(1)" id="compProx" title="Mês seguinte">▶</button>
           </div>
           <button class="btn btn-out" id="btnHoje" style="padding:7px 13px;font-size:12.5px" onclick="compHoje()">Hoje</button>
+          <div class="modo" style="margin-left:auto">
+            <button data-modo="avanco" class="on" onclick="trocarModo('avanco')"
+              title="Digite só o que andou no período — o sistema soma ao acumulado">Avanço</button>
+            <button data-modo="acum" onclick="trocarModo('acum')"
+              title="Digite o total já executado até aqui">Executado acumulado</button>
+          </div>
         </div>
         <div id="trilha"></div>
         <div id="avisoData"></div>
@@ -250,7 +264,7 @@ td.num{text-align:right;white-space:nowrap}
           <table>
             <thead><tr>
               <th>Serviço</th><th class="num">Qtd do contrato</th><th class="num">Valor</th>
-              <th style="width:210px">Executado</th><th class="num">R$ executado</th><th>Situação</th>
+              <th style="width:230px" id="thExec">Executado</th><th class="num">R$ executado</th><th>Situação</th>
             </tr></thead>
             <tbody id="tbItens"></tbody>
           </table>
@@ -936,6 +950,7 @@ function pintarItens(){
     </tr>`;
   });
   document.getElementById("tbItens").innerHTML=html;
+  _pintarCabecalhoExec();
 }
 // ═════════════════════════════════════════════════════════════════════════════
 // COMPETÊNCIA — a data-base da tela
@@ -1064,14 +1079,13 @@ async function alternarTipo(id){
 // unidades diferentes; a conversão acontece aqui, na entrada.
 // Serviço sem quantidade (verba, VB, taxa) não tem o que medir: cai no % mesmo.
 // ═════════════════════════════════════════════════════════════════════════════
-const _UN_SEM_QTD=/^(vb|verba|un|und|unid|cj|conj|gl|global|mes|mês|m[eê]s|%)$/i;
-function _temQtd(i){
-  const q=Number(i.quantidade)||0;
-  if(q<=0) return false;
-  // "1,00 VB" não é quantitativo mensurável — medir 0,37 de uma verba não diz nada
-  if(_UN_SEM_QTD.test(String(i.unidade||"").trim()) && q<=1) return false;
-  return true;
-}
+// Qualquer serviço com quantidade contratada é mensurável na própria unidade —
+// inclusive "1,00 UN" e "1,00 VB". O engenheiro que instala o canteiro provisório
+// não pensa "estou em 20%": pensa "fiz 0,2 da unidade". Era eu que estava
+// impondo a conta de cabeça ao excluir essas unidades. Só cai no percentual
+// quem realmente não tem quantidade contratada (0 ou vazio).
+function _temQtd(i){ return (Number(i.quantidade)||0) > 0; }
+
 // aceita "1.234,56", "1234.56", "1234,56" e "1234"
 function _numBR(v){
   let t=String(v==null?"":v).trim().replace(/\s/g,"");
@@ -1080,24 +1094,68 @@ function _numBR(v){
   else if((t.match(/\./g)||[]).length>1) t=t.replace(/\./g,"");
   return parseFloat(t);
 }
+// quantidade com casas suficientes p/ unidade pequena: 1 UN precisa ver 0,20
+const _nfQ=(v,q)=>(Number(v)||0).toLocaleString("pt-BR",
+  {minimumFractionDigits:(Number(q)||0)<=2?2:2, maximumFractionDigits:(Number(q)||0)<=2?3:2});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ACUMULADO × AVANÇO — quem mede obra não soma de cabeça
+// Em agosto a alvenaria fechou 100 m². Em setembro sobem 10 m² na semana 1 e
+// 20 m² na semana 2. Exigir que o usuário digite 110 e depois 130 é pedir que
+// ele faça — e confira — uma conta que o sistema já tem como fazer. Pior: é
+// onde nasce erro de medição, porque basta ele errar a soma uma vez para o
+// acumulado ficar torto até alguém conferir a planilha inteira.
+// No modo AVANÇO ele digita só o que andou no período; o sistema soma ao que já
+// existe e grava o acumulado. O banco continua guardando acumulado — é o que
+// permite ler a obra em qualquer data —, mas a entrada passa a ser incremental.
+// ═════════════════════════════════════════════════════════════════════════════
+let MODO_LANC = "avanco";   // "avanco" | "acum"
+function trocarModo(m){
+  MODO_LANC = m;
+  document.querySelectorAll("[data-modo]").forEach(b=>b.classList.toggle("on", b.dataset.modo===m));
+  pintarItens();
+}
+function _pintarCabecalhoExec(){
+  const th=document.getElementById("thExec");
+  if(th) th.textContent = MODO_LANC==="avanco" ? "Avanço no período" : "Executado acumulado";
+}
 function _celulaAvanco(i,p,dl,fut){
   const q=Number(i.quantidade)||0, un=esc(i.unidade||"");
   const barra=`<div class="bar" style="margin-top:6px"><i style="width:${Math.min(100,p)}%"></i></div>`;
   const delta=dl?`<span class="dlt ${dl>0?"up":"dn"}" title="avanço nesta competência">${dl>0?"+":""}${nf(dl)} p.p.</span>`:"";
   const trava=fut?"disabled title='Mês futuro — use a aba Previsão'":"";
-  if(!_temQtd(i)){
-    return `<div class="av"><input class="pct-in" type="number" min="0" max="100" step="1" value="${nf0(p)}" ${trava}
-        onchange="lancar('${i.id}',this.value,this)"><span class="u">%</span>${delta}</div>
-      <div class="avsub">serviço sem quantitativo — informe o percentual</div>${barra}`;
+  const avanco = MODO_LANC==="avanco";
+
+  if(!_temQtd(i)){   // sem quantidade contratada: só resta o percentual
+    return avanco
+      ? `<div class="av"><span class="mais">+</span>
+          <input class="pct-in" type="text" inputmode="decimal" placeholder="0" value="" ${trava}
+            onchange="lancarDelta('${i.id}',this.value,this,'pct')"
+            title="Quanto avançou neste período, em pontos percentuais"><span class="u">%</span>
+          <span class="acum" title="acumulado após somar">= ${nf(p)}%</span>${delta}</div>
+        <div class="avsub">serviço sem quantitativo — informe o avanço em %</div>${barra}`
+      : `<div class="av"><input class="pct-in" type="number" min="0" max="100" step="1" value="${nf0(p)}" ${trava}
+            onchange="lancar('${i.id}',this.value,this)"><span class="u">%</span>${delta}</div>
+        <div class="avsub">serviço sem quantitativo — informe o percentual acumulado</div>${barra}`;
   }
-  const feito=q*p/100;
-  return `<div class="av">
-      <input class="qtd-in" type="text" inputmode="decimal" value="${nf(feito)}" ${trava}
-        onchange="lancarQtd('${i.id}',this.value,this)"
-        title="Quanto já foi executado, na unidade da planilha">
-      <span class="u">${un}</span>
-      <span class="pctcalc" title="calculado a partir do quantitativo">${nf(p)}%</span>${delta}</div>
-    <div class="avsub">de ${nf(q)} ${un} · falta ${nf(Math.max(0,q-feito))} ${un}</div>${barra}`;
+
+  const feito=q*p/100, falta=Math.max(0,q-feito);
+  return avanco
+    ? `<div class="av"><span class="mais">+</span>
+        <input class="qtd-in" type="text" inputmode="decimal" placeholder="0" value="" ${trava}
+          onchange="lancarDelta('${i.id}',this.value,this,'qtd')"
+          title="Quanto avançou neste período, na unidade da planilha">
+        <span class="u">${un}</span>
+        <span class="acum" title="acumulado após somar">= ${_nfQ(feito,q)} ${un}</span>
+        <span class="pctcalc">${nf(p)}%</span>${delta}</div>
+      <div class="avsub">de ${_nfQ(q,q)} ${un} · falta ${_nfQ(falta,q)} ${un}</div>${barra}`
+    : `<div class="av">
+        <input class="qtd-in" type="text" inputmode="decimal" value="${_nfQ(feito,q)}" ${trava}
+          onchange="lancarQtd('${i.id}',this.value,this)"
+          title="Total já executado, na unidade da planilha">
+        <span class="u">${un}</span>
+        <span class="pctcalc" title="calculado a partir do quantitativo">${nf(p)}%</span>${delta}</div>
+      <div class="avsub">de ${_nfQ(q,q)} ${un} · falta ${_nfQ(falta,q)} ${un}</div>${barra}`;
 }
 // Lança a partir da QUANTIDADE executada acumulada.
 async function lancarQtd(itemId,valor,el){
@@ -1105,13 +1163,38 @@ async function lancarQtd(itemId,valor,el){
   const q=Number(it.quantidade)||0;
   const v=_numBR(valor);
   if(!isFinite(v)||v<0){ alert("Informe a quantidade executada — por exemplo 214,5"); pintarItens(); return; }
-  if(v>q*1.0001){
-    if(!confirm(`Você informou ${nf(v)} ${it.unidade||""}, acima dos ${nf(q)} do contrato.\n\n`+
-      `Se a obra executou mais do que o previsto, isso normalmente vira aditivo — o sistema vai registrar 100% `+
-      `e o excedente NÃO entra no valor medido.\n\nRegistrar como concluído (100%)?`)){ pintarItens(); return; }
-  }
+  if(v>q*1.0001 && !_confirmaExcedente(it,v,q)){ pintarItens(); return; }
   const pct = q>0 ? Math.min(100, v/q*100) : 0;
   await lancar(itemId, Math.round(pct*100)/100, el);
+}
+// Lança a partir do AVANÇO do período: soma ao que já existe.
+async function lancarDelta(itemId,valor,el,tipo){
+  const it=ITENS.find(x=>x.id===itemId); if(!it) return;
+  const d=_numBR(valor);
+  if(!isFinite(d)){ pintarItens(); return; }            // campo vazio: nada a fazer
+  const atualPct = Number((itensEm(dataBase()).find(x=>x.id===itemId)||{}).pct) || 0;
+  if(tipo==="pct"){
+    const novo = atualPct + d;
+    if(novo < 0){ alert("O avanço negativo é maior que o já executado."); pintarItens(); return; }
+    await lancar(itemId, Math.min(100, Math.round(novo*100)/100), el);
+    return;
+  }
+  const q=Number(it.quantidade)||0;
+  const feito = q*atualPct/100;
+  const novoQ = feito + d;
+  if(novoQ < -0.0001){ alert("O avanço negativo é maior que o já executado."); pintarItens(); return; }
+  if(novoQ > q*1.0001 && !_confirmaExcedente(it,novoQ,q,feito,d)){ pintarItens(); return; }
+  const pct = q>0 ? Math.min(100, Math.max(0,novoQ)/q*100) : 0;
+  await lancar(itemId, Math.round(pct*100)/100, el);
+}
+// Excedente vira aditivo — o sistema não pode medir mais que o contratado calado.
+function _confirmaExcedente(it,total,q,feito,d){
+  const un=it.unidade||"";
+  return confirm(
+    (d!=null ? `Somando ${nf(d)} ${un} ao que já havia (${nf(feito)} ${un}), o total fica ${nf(total)} ${un}.\n\n`
+             : `Você informou ${nf(total)} ${un}, acima dos ${nf(q)} do contrato.\n\n`)
+    + `Isso passa dos ${nf(q)} ${un} contratados. Executar acima do previsto normalmente vira aditivo — `
+    + `o sistema registra 100% e o excedente NÃO entra no valor medido.\n\nRegistrar como concluído (100%)?`);
 }
 // ═══ LANÇAMENTO — insere no log, nunca sobrescreve ═══
 async function lancar(itemId,valor,el){
