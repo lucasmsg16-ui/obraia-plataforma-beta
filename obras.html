@@ -100,12 +100,31 @@ td.num{text-align:right;white-space:nowrap}
 .avsub{font-size:10.5px;color:var(--muted);margin-top:3px}
 .mais{font-size:16px;font-weight:800;color:var(--green);line-height:1}
 .acum{font-size:11.5px;font-weight:700;color:var(--navy);background:#eef2f7;border-radius:20px;padding:2px 9px;white-space:nowrap}
-.modo{display:inline-flex;border:1.5px solid var(--border);border-radius:9px;overflow:hidden;background:#fff}
-.modo button{background:#fff;border:0;padding:7px 13px;font-size:12.5px;font-weight:700;color:var(--muted);
-  cursor:pointer;font-family:inherit;white-space:nowrap}
-.modo button:hover{background:#f1f5f9}
-.modo button.on{background:var(--navy);color:#fff}
-.modo button+button{border-left:1px solid var(--border)}
+/* ── cabeçalho: o seletor de modo mora na própria coluna ── */
+th{vertical-align:bottom;line-height:1.32}
+.th-serv{width:auto;min-width:240px}
+.th-qtd{width:86px}
+.th-val{width:104px}
+.th-exec{width:250px}
+.th-rs{width:104px}
+.th-sit{width:96px}
+.thmodo{cursor:pointer;color:rgba(255,255,255,.5);transition:.12s;white-space:nowrap;padding:1px 0;
+  border-bottom:2px solid transparent;text-transform:none;font-size:11.5px;letter-spacing:0}
+.thmodo:hover{color:rgba(255,255,255,.85)}
+.thmodo.on{color:#fff;border-bottom-color:#4db8e8;font-weight:800}
+.thsep{color:rgba(255,255,255,.22);margin:0 5px;font-weight:400}
+/* ── níveis da EAP: grupo (prédio/frente) e subgrupo (etapa) ── */
+tr.grupo td{background:linear-gradient(90deg,var(--navy),#0d4763);color:#fff;padding:9px 10px;
+  border-bottom:0;position:relative}
+tr.grupo .gnome{font-weight:800;font-size:12.5px;letter-spacing:.5px;text-transform:uppercase}
+tr.grupo .gval{font-size:11.5px;color:#9fd4ec;margin-left:10px;font-weight:600}
+tr.grupo .gpct{float:right;font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.16);
+  border-radius:20px;padding:1px 9px;margin-left:8px}
+tr.grupo .gbar{display:block;height:3px;background:rgba(255,255,255,.18);border-radius:20px;margin-top:6px}
+tr.grupo .gbar i{display:block;height:100%;background:#4db8e8;border-radius:20px}
+tr.fase td{background:#eef3f8;color:#33506b;font-size:11px;padding:6px 10px 6px 22px;position:relative}
+tr.fase td::before{content:"";position:absolute;left:11px;top:50%;width:5px;height:5px;
+  border-radius:50%;background:var(--blue);transform:translateY(-50%)}
 .lixo{background:#fff;border:1.5px solid var(--border);color:#94a3b8;border-radius:8px;width:36px;height:36px;
   font-size:15px;cursor:pointer;flex:none;font-family:inherit;transition:.15s}
 .lixo:hover{border-color:var(--red);color:var(--red);background:#fef2f2}
@@ -234,12 +253,6 @@ td.num{text-align:right;white-space:nowrap}
             <button onclick="compMover(1)" id="compProx" title="Mês seguinte">▶</button>
           </div>
           <button class="btn btn-out" id="btnHoje" style="padding:7px 13px;font-size:12.5px" onclick="compHoje()">Hoje</button>
-          <div class="modo" style="margin-left:auto">
-            <button data-modo="avanco" class="on" onclick="trocarModo('avanco')"
-              title="Digite só o que andou no período — o sistema soma ao acumulado">Avanço</button>
-            <button data-modo="acum" onclick="trocarModo('acum')"
-              title="Digite o total já executado até aqui">Executado acumulado</button>
-          </div>
         </div>
         <div id="trilha"></div>
         <div id="avisoData"></div>
@@ -263,8 +276,19 @@ td.num{text-align:right;white-space:nowrap}
         <div style="overflow:auto;max-height:62vh">
           <table>
             <thead><tr>
-              <th>Serviço</th><th class="num">Qtd do contrato</th><th class="num">Valor</th>
-              <th style="width:230px" id="thExec">Executado</th><th class="num">R$ executado</th><th>Situação</th>
+              <th class="th-serv">Serviço</th>
+              <th class="num th-qtd">Qtd do<br>contrato</th>
+              <th class="num th-val">Valor</th>
+              <th class="th-exec">
+                <!-- o seletor É o cabeçalho: a coluna diz o que ela recebe -->
+                <span class="thmodo" data-modo="avanco" onclick="trocarModo('avanco')"
+                  title="Digite só o que andou no período — o sistema soma ao acumulado">Avanço no período</span>
+                <span class="thsep">|</span>
+                <span class="thmodo" data-modo="acum" onclick="trocarModo('acum')"
+                  title="Digite o total já executado até aqui">Executado acumulado</span>
+              </th>
+              <th class="num th-rs">R$<br>executado</th>
+              <th class="th-sit">Situação</th>
             </tr></thead>
             <tbody id="tbItens"></tbody>
           </table>
@@ -550,19 +574,41 @@ function _lerMap(){
   return {item:g("mItem"),cod:g("mCod"),desc:g("mDesc"),un:g("mUn"),qtd:g("mQtd"),pu:g("mPu"),tot:g("mTot")};
 }
 // Converte as linhas cruas em serviços + etapas, aplicando a hierarquia do item.
+// ═════════════════════════════════════════════════════════════════════════════
+// GRUPOS E SUBGRUPOS — a planilha já traz a árvore, faltava lê-la
+// Orçamento de obra raramente é uma lista plana. Ele é organizado por frente:
+//   1     PRÉDIO PRINCIPAL
+//   1.1     SERVIÇOS PRELIMINARES
+//   1.1.1     Tapume ...
+//   2     GUARITA
+//   2.1     FUNDAÇÃO
+// O código antigo guardava uma variável só, então "1 PRÉDIO PRINCIPAL" era
+// apagada pela linha seguinte "1.1 SERVIÇOS PRELIMINARES": o usuário perdia
+// justamente a informação de QUAL prédio o serviço pertence. A profundidade já
+// está no próprio número do item — 1 é nível 1, 1.1 é nível 2 —, então basta
+// manter uma pilha de títulos e ler quem está acima quando o serviço aparece.
+// O caminho é gravado em `fase` separado por "›", sem exigir coluna nova.
+const _SEP_EAP = " › ";
+function _nivelItem(item){ return String(item||"").split(".").filter(Boolean).length; }
 function _extrair(){
-  const m=_lerMap(); const out=[]; let fase=null;
+  const m=_lerMap(); const out=[]; const pilha=[];   // pilha[0]=grupo, pilha[1]=subgrupo…
   const k=()=>1+(Number(PLAN.bdi)||0)/100;
+  const caminho=()=>pilha.filter(Boolean).join(_SEP_EAP).slice(0,180) || null;
   PLAN.corpo.forEach(L=>{
     const r=_tipoLinha(L,m);
     if(r.tipo==="vazia") return;
-    if(r.tipo==="etapa"){ fase=r.desc.slice(0,120); return; }
+    if(r.tipo==="etapa"){
+      const n=Math.max(1,_nivelItem(r.item));
+      pilha.length=n-1;                 // fecha os níveis mais profundos
+      pilha[n-1]=r.desc.slice(0,120);
+      return;
+    }
     if(r.tipo==="continua"){                       // emenda no serviço anterior
       if(out.length) out[out.length-1].descricao=(out[out.length-1].descricao+" "+r.desc).slice(0,400);
       return;
     }
     const cel=r.cel;
-    out.push({ item:r.item, fase, codigo:String(cel(m.cod)||"").trim()||null,
+    out.push({ item:r.item, fase:caminho(), codigo:String(cel(m.cod)||"").trim()||null,
       descricao:r.desc.slice(0,400), unidade:String(cel(m.un)||"").trim().toUpperCase()||null,
       quantidade:r.qtd, preco:(r.pu||(r.qtd?r.tot/r.qtd:0))*k(), valor:Math.round(r.tot*k()*100)/100 });
   });
@@ -801,7 +847,17 @@ async function carregarItens(){
                             : String(a.data_ref).localeCompare(String(b.data_ref)));
   const fases=[...new Set(ITENS.map(i=>i.fase).filter(Boolean))];
   const sel=document.getElementById("fFase");
-  sel.innerHTML='<option value="">Todas as fases</option>'+fases.map(f=>`<option>${esc(f)}</option>`).join("");
+  // agrupa o dropdown por frente de obra: o caminho inteiro em cada linha ficaria
+  // longo demais e o usuário perde a noção de a qual prédio a etapa pertence
+  const porG={};
+  fases.forEach(f=>{ const P=_partesEAP({fase:f}); (porG[P.grupo||"—"]=porG[P.grupo||"—"]||[]).push({f,sub:P.sub}); });
+  sel.innerHTML='<option value="">Todas as etapas</option>'+Object.keys(porG).map(g=>{
+    const ls=porG[g];
+    // grupo sem subgrupo vira opção simples; com subgrupos, vira optgroup
+    if(ls.length===1 && !ls[0].sub) return `<option value="${esc(ls[0].f)}">${esc(g)}</option>`;
+    return `<optgroup label="${esc(g)}">`+ls.map(x=>
+      `<option value="${esc(x.f)}">${esc(x.sub||g)}</option>`).join("")+`</optgroup>`;
+  }).join("");
   pintarComp(); pintarTrilha(); pintarKPIs(); pintarItens();
 }
 
@@ -912,6 +968,12 @@ function pintarKPIs(){
     <div class="kpi"><div class="l">A executar</div><div class="v" style="font-size:19px">${money(total-feito)}</div>
       <div class="s">saldo do contrato</div></div>`;
 }
+// Lê a árvore gravada em `fase`. Planilha de um nível só continua funcionando:
+// o grupo é o próprio título e não existe subgrupo.
+function _partesEAP(i){
+  const t=String((i&&i.fase)||"").split(_SEP_EAP).map(x=>x.trim()).filter(Boolean);
+  return { grupo: t[0]||null, sub: t.slice(1).join(_SEP_EAP)||null, cheio: t.join(_SEP_EAP)||null };
+}
 function pintarItens(){
   const base=dataBase(), fut=ehFuturo();
   const its=itensEm(base);
@@ -928,9 +990,26 @@ function pintarItens(){
     (!ff||i.fase===ff)&&(!fs||sit(i)===fs)&&(!ft||(i.tipo_custo||"direto")===ft));
   if(!lista.length){ document.getElementById("tbItens").innerHTML=
     `<tr><td colspan="6" class="vazio">Nenhum serviço com esse filtro.</td></tr>`; return; }
-  let html="", faseAtual=null;
+  // totais por grupo, para o cabeçalho mostrar peso e avanço da frente de obra
+  const porGrupo={};
+  its.forEach(x=>{ const g=_partesEAP(x).grupo||"—";
+    porGrupo[g]=porGrupo[g]||{v:0,e:0};
+    porGrupo[g].v+=Number(x.valor)||0; porGrupo[g].e+=Number(x.valor_executado)||0; });
+  let html="", gAtual=null, sAtual=null;
   lista.forEach(i=>{
-    if(i.fase&&i.fase!==faseAtual){ faseAtual=i.fase; html+=`<tr class="fase"><td colspan="6">${esc(i.fase)}</td></tr>`; }
+    const P=_partesEAP(i);
+    if(P.grupo&&P.grupo!==gAtual){
+      gAtual=P.grupo; sAtual=null;
+      const t=porGrupo[P.grupo]||{v:0,e:0};
+      const pg=t.v>0?t.e/t.v*100:0;
+      html+=`<tr class="grupo"><td colspan="6">
+        <span class="gnome">${esc(P.grupo)}</span>
+        <span class="gval">${money(t.v)}</span>
+        <span class="gpct">${nf(pg)}%</span>
+        <span class="gbar"><i style="width:${Math.min(100,pg)}%"></i></span></td></tr>`;
+    }
+    if(P.sub&&P.sub!==sAtual){ sAtual=P.sub; html+=`<tr class="fase"><td colspan="6">${esc(P.sub)}</td></tr>`; }
+    else if(!P.sub&&!P.grupo&&sAtual!==null){ sAtual=null; }
     const p=Number(i.pct)||0, s=sit(i);
     const pa=mAnt[i.id]||0, dl=Math.round((p-pa)*100)/100;
     const lbl={z:"Não iniciado",p:"Em andamento",c:"Concluído"}[s];
@@ -1112,12 +1191,11 @@ const _nfQ=(v,q)=>(Number(v)||0).toLocaleString("pt-BR",
 let MODO_LANC = "avanco";   // "avanco" | "acum"
 function trocarModo(m){
   MODO_LANC = m;
-  document.querySelectorAll("[data-modo]").forEach(b=>b.classList.toggle("on", b.dataset.modo===m));
-  pintarItens();
+  pintarItens();   // pintarItens já reacende o cabeçalho
 }
 function _pintarCabecalhoExec(){
-  const th=document.getElementById("thExec");
-  if(th) th.textContent = MODO_LANC==="avanco" ? "Avanço no período" : "Executado acumulado";
+  document.querySelectorAll(".thmodo[data-modo]").forEach(e=>
+    e.classList.toggle("on", e.dataset.modo===MODO_LANC));
 }
 function _celulaAvanco(i,p,dl,fut){
   const q=Number(i.quantidade)||0, un=esc(i.unidade||"");
