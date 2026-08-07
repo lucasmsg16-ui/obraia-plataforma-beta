@@ -122,12 +122,18 @@ th{vertical-align:bottom;line-height:1.32}
 .th-serv{width:auto;min-width:260px}
 .th-qtd{width:76px}
 .th-val{width:96px}
-.th-av{width:132px;background:linear-gradient(180deg,transparent,rgba(77,184,232,.16))}
-.th-ac{width:164px;background:linear-gradient(180deg,transparent,rgba(77,184,232,.16))}
+/* ATENÇÃO: background-image, NUNCA background.
+   A shorthand `background` zera o background-color, e a regra base de th é
+   `background:var(--navy)`. Usar a shorthand aqui apagava o azul-marinho: o
+   cabeçalho ficava transparente e o texto branco sumia contra o fundo da
+   página. background-image sobrepõe o degradê e preserva a cor de baixo. */
+.th-av{width:132px;background-image:linear-gradient(180deg,transparent,rgba(77,184,232,.20))}
+.th-ac{width:164px;background-image:linear-gradient(180deg,transparent,rgba(77,184,232,.20))}
 .thsub{display:block;font-size:9.5px;font-weight:600;letter-spacing:.3px;
   color:rgba(255,255,255,.60);text-transform:none;margin-top:1px}
 .th-rs{width:98px}
-.th-sit{width:90px}
+.th-sit{width:100px}
+.th-sit .chip{white-space:nowrap}   /* "Em andamento" nao pode quebrar no meio */
 /* a dupla de colunas ganha um fundo levemente distinto: é a zona de digitação */
 td.c-av,td.c-ac{background:#f7fbfd}
 td.c-av{border-left:2px solid #d8ecf6}
