@@ -843,9 +843,17 @@ function evm(dataISO){
   // ritmo: o que já se produziu por mês x o que precisa produzir para entregar
   const ritmoReal = t>0 ? EV/t*30 : 0;
   const ritmoNec  = diasRest>0 ? restante/diasRest*30 : restante;
-  // término provável: mantido o desempenho medido até aqui
-  const fimProv = spi>0 ? d.fim/Math.min(spi,4) : d.fim*2;
-  return {d,t,its,EV,PV,spi,atrasoDias,restante,diasRest,ritmoReal,ritmoNec,fimProv,total:d.total};
+  // ── QUANDO O SPI AINDA NÃO SIGNIFICA NADA ────────────────────────────────
+  // No começo da obra o previsto é quase zero, e dividir por quase zero produz
+  // número grande e sem sentido: com R$ 2 mil executados no 3º dia o SPI dá
+  // 0,17 e o "término provável" salta para 1.500 dias numa obra de 255.
+  // Isso não é um alerta útil — é uma mentira com aparência de precisão, do
+  // tipo que um engenheiro mostra ao cliente sem desconfiar.
+  // Prática usual de gestão por valor agregado: só projetar quando há massa
+  // medida suficiente. Aqui: 10% do previsto E 15 dias corridos.
+  const maduro = (PV >= d.total*0.10) && (t >= 15) && (EV > 0);
+  const fimProv = maduro ? d.fim/Math.max(0.35, Math.min(spi,2.5)) : null;
+  return {d,t,its,EV,PV,spi,atrasoDias,restante,diasRest,ritmoReal,ritmoNec,fimProv,maduro,total:d.total};
 }
 
 function pintarKPIs(){
@@ -1141,6 +1149,15 @@ function ligarTempoReal(obraId){
   CANAL=sb.channel("obra-"+obraId)
     .on("postgres_changes",{event:"INSERT",schema:"public",table:"obra_avancos",filter:"obra_id=eq."+obraId},
       ()=>{ carregarItens(); })
+    // cronograma e metas mudam pela mão de outra pessoa; sem isto a tela seguiria
+    // desenhando o plano velho e a próxima gravação daqui empurraria o obsoleto
+    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"obras",filter:"id=eq."+obraId},
+      p=>{ if(p&&p.new){ OBRA=Object.assign({},OBRA,p.new);
+             const ab=document.querySelector(".tabs button.on");
+             const q=ab?ab.textContent.trim():"";
+             if(q==="Cronograma") cronograma(); else if(q==="Curva S") curvaS();
+             else if(q==="Previsão") previsao(); else if(q==="Mês a mês") mesAmes();
+             pintarKPIs(); } })
     .subscribe(st=>{ document.getElementById("selo").classList.toggle("hide", st!=="SUBSCRIBED"); });
 }
 
@@ -1459,18 +1476,60 @@ function removerLink(fase,pred){
   const pop=document.getElementById("linkPop"); if(pop) pop.remove();
   gravarCrono(cfg);
 }
-function salvarPrazo(v){
+async function salvarPrazo(v){
   const n=Math.max(1,parseInt(v,10)||180);
-  const cfg=_cronoCfg(); cfg.prazo=n;
-  sb.from("obras").update({prazo_dias:n,cronograma:cfg}).eq("id",OBRA.id).then(()=>{
-    OBRA.prazo_dias=n; OBRA.cronograma=cfg; pintarKPIs(); cronograma(); });
+  const merged=await _mesclarCrono(m=>{ m.prazo=n; });
+  if(!merged) return;
+  if(await _persistirCrono(merged,{prazo_dias:n})){ OBRA.prazo_dias=n; pintarKPIs(); cronograma(); }
 }
-function resetCrono(){
-  if(!confirm("Voltar à rede sugerida? Suas durações e vínculos editados serão perdidos.")) return;
-  sb.from("obras").update({cronograma:null}).eq("id",OBRA.id).then(()=>{ OBRA.cronograma=null; cronograma(); });
+async function resetCrono(){
+  if(!confirm("Voltar à rede sugerida? Suas durações e vínculos editados serão perdidos.\n\n(As metas de previsão que você lançou são preservadas.)")) return;
+  // preserva o plano: resetar o desenho da rede não deveria apagar planejamento
+  const merged=await _mesclarCrono(m=>{ m.dur={}; m.links={}; });
+  if(!merged) return;
+  if(await _persistirCrono(merged)) cronograma();
 }
-function gravarCrono(cfg){
-  sb.from("obras").update({cronograma:cfg}).eq("id",OBRA.id).then(()=>{ OBRA.cronograma=cfg; cronograma(); pintarKPIs(); });
+// ═════════════════════════════════════════════════════════════════════════════
+// GRAVAÇÃO DO CRONOGRAMA — relê antes de escrever
+// O cronograma e as metas de previsão moram no mesmo jsonb da obra, e a tela
+// trabalhava sobre o snapshot carregado ao ABRIR a obra. Numa obra com equipe
+// isso apagava trabalho sem avisar: você abre às 9h, seu sócio ajusta uma
+// duração às 10h, você mexe em outra às 11h — e o seu POST leva o estado das 9h,
+// enterrando a alteração dele. Ninguém via nada.
+// Agora toda gravação relê o estado atual e mescla campo a campo. Só sobrescreve
+// o que VOCÊ acabou de mudar; o resto vem do banco. É o mínimo para um painel
+// que se vende como colaborativo.
+// ═════════════════════════════════════════════════════════════════════════════
+async function _mesclarCrono(mut){
+  const {data,error}=await sb.from("obras").select("cronograma,prazo_dias").eq("id",OBRA.id).single();
+  if(error){ msg("itensMsg","Não consegui reler o cronograma: "+esc(error.message),"err"); return null; }
+  const atual=(data&&data.cronograma&&typeof data.cronograma==="object")?data.cronograma:{};
+  const base={prazo:Number(data&&data.prazo_dias)||Number(OBRA.prazo_dias)||180,dur:{},links:{},plano:{}};
+  const merged=Object.assign(base,atual,{
+    dur:Object.assign({},atual.dur||{}),
+    links:Object.assign({},atual.links||{}),
+    plano:Object.assign({},atual.plano||{})
+  });
+  mut(merged);                       // aplica só a alteração desta tela
+  OBRA.cronograma=merged;
+  if(data&&data.prazo_dias) OBRA.prazo_dias=data.prazo_dias;
+  return merged;
+}
+async function _persistirCrono(cfg,extra){
+  const {error}=await sb.from("obras").update(Object.assign({cronograma:cfg},extra||{})).eq("id",OBRA.id);
+  if(error){ msg("itensMsg","Não consegui salvar: "+esc(error.message),"err"); return false; }
+  return true;
+}
+async function gravarCrono(cfg){
+  // cfg vem de _cronoCfg() sobre o snapshot local; reaplica a mudança sobre o
+  // estado fresco em vez de empurrar o snapshot inteiro
+  const merged=await _mesclarCrono(m=>{
+    m.prazo=cfg.prazo;
+    Object.assign(m.dur,cfg.dur||{});
+    m.links=Object.assign({},cfg.links||{});   // vínculos são substituídos em bloco
+  });
+  if(!merged) return;
+  if(await _persistirCrono(merged)){ cronograma(); pintarKPIs(); }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -1527,7 +1586,7 @@ function curvaS(){
   if(real.length&&Math.abs(real[real.length-1].t-hoje)>3) real.push({t:hoje, pct:d.total>0?E.EV/d.total*100:0, v:E.EV});
   // tendência: do ponto de hoje até 100%, no ritmo medido
   const tend=[];
-  if(E.EV>0&&hoje>0){
+  if(E.maduro&&E.EV>0&&hoje>0){   // sem massa medida, a tendência vira ficção
     const ritmoDia=E.EV/hoje;
     const tFim100 = ritmoDia>0 ? d.total/ritmoDia : d.fim*3;
     for(let k=0;k<=24;k++){ const t=hoje+(tFim100-hoje)*k/24;
@@ -1556,24 +1615,31 @@ function curvaS(){
   const spiCls=E.spi>=0.98?"ok":E.spi>=0.9?"warn":"bad";
   const atrCls=E.atrasoDias<=2?"ok":E.atrasoDias<=15?"warn":"bad";
   const ritCls=E.ritmoNec<=E.ritmoReal*1.05?"ok":E.ritmoNec<=E.ritmoReal*1.35?"warn":"bad";
-  const dtProv=dia(E.fimProv);
+  const dtProv=E.maduro?dia(E.fimProv):null;
   const dtPrev=dia(d.fim);
-  const estouro=Math.round(E.fimProv-d.fim);
+  const estouro=E.maduro?Math.round(E.fimProv-d.fim):null;
 
   host.innerHTML=`
     <div class="kpis" style="margin-bottom:6px">
       <div class="kpi ${atrCls}"><div class="l">${E.atrasoDias>=0?"Atraso acumulado":"Adiantado"}</div>
         <div class="v">${Math.abs(E.atrasoDias)}<span style="font-size:14px;color:var(--muted)"> dias</span></div>
         <div class="s">o cronograma previa esse volume em ${fmt(dia(E.t-E.atrasoDias))}</div></div>
-      <div class="kpi ${spiCls}"><div class="l">Desempenho (SPI)</div><div class="v">${E.spi.toFixed(2)}</div>
-        <div class="s">produziu ${nf(E.spi*100)}% do planejado no período</div></div>
+      ${E.maduro
+        ? `<div class="kpi ${spiCls}"><div class="l">Desempenho (SPI)</div><div class="v">${E.spi.toFixed(2)}</div>
+             <div class="s">produziu ${nf(E.spi*100)}% do planejado no período</div></div>`
+        : `<div class="kpi"><div class="l">Desempenho (SPI)</div><div class="v" style="font-size:15px;color:var(--muted)">cedo demais</div>
+             <div class="s">no início da obra o índice oscila demais para significar algo</div></div>`}
       <div class="kpi"><div class="l">Executado · previsto</div><div class="v" style="font-size:19px">${nf(d.total>0?E.EV/d.total*100:0)}%</div>
         <div class="s">${money(E.EV)} de ${money(E.PV)} previstos</div></div>
       <div class="kpi ${ritCls}"><div class="l">Ritmo necessário</div><div class="v" style="font-size:19px">${money(E.ritmoNec)}</div>
         <div class="s">por mês · você vem fazendo ${money(E.ritmoReal)}</div></div>
-      <div class="kpi ${estouro<=0?"ok":estouro<=20?"warn":"bad"}"><div class="l">Término provável</div>
-        <div class="v" style="font-size:17px">${dtProv.toLocaleDateString("pt-BR")}</div>
-        <div class="s">cronograma ${dtPrev.toLocaleDateString("pt-BR")} · ${estouro>0?"+"+estouro+" dias":estouro<0?estouro+" dias":"em cima"}</div></div>
+      ${E.maduro
+        ? `<div class="kpi ${estouro<=0?"ok":estouro<=20?"warn":"bad"}"><div class="l">Término provável</div>
+             <div class="v" style="font-size:17px">${dtProv.toLocaleDateString("pt-BR")}</div>
+             <div class="s">cronograma ${dtPrev.toLocaleDateString("pt-BR")} · ${estouro>0?"+"+estouro+" dias":estouro<0?estouro+" dias":"em cima"}</div></div>`
+        : `<div class="kpi"><div class="l">Término provável</div>
+             <div class="v" style="font-size:15px;color:var(--muted)">sem base ainda</div>
+             <div class="s">projeção exige 10% da obra medida e 15 dias — hoje há ${nf(d.total>0?E.EV/d.total*100:0)}%</div></div>`}
     </div>
     ${_alertaRitmo(E)}
     <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;min-width:680px">
@@ -1821,22 +1887,30 @@ function _desembolso(mesFoco){
       <span class="chip p">plano</span> mês em que você definiu metas na tabela abaixo.
     </div>`;
 }
-function prevMeta(id,v){
+async function prevMeta(id,v){
   const n=Math.max(0,Math.min(100,parseFloat(String(v).replace(",","."))||0));
-  const cfg=_cronoCfg(); cfg.plano=cfg.plano||{}; cfg.plano[PREV_MES]=cfg.plano[PREV_MES]||{};
-  cfg.plano[PREV_MES][id]=Math.round(n*100)/100;
-  sb.from("obras").update({cronograma:cfg}).eq("id",OBRA.id).then(({error})=>{
-    if(error){ alert("Não consegui salvar o plano: "+error.message); return; }
-    OBRA.cronograma=cfg; previsao(); });
+  const mes=PREV_MES;
+  // grava UMA meta, sem carregar junto o resto do plano do snapshot local:
+  // duas pessoas planejando o mesmo mês não se apagam
+  const merged=await _mesclarCrono(m=>{
+    m.plano[mes]=Object.assign({},m.plano[mes]||{});
+    m.plano[mes][id]=Math.round(n*100)/100;
+  });
+  if(!merged) return;
+  if(await _persistirCrono(merged)) previsao();
 }
-function prevSugerir(){
-  const cfg=_cronoCfg(); cfg.plano=cfg.plano||{}; cfg.plano[PREV_MES]=_metaSugerida(PREV_MES);
-  sb.from("obras").update({cronograma:cfg}).eq("id",OBRA.id).then(()=>{ OBRA.cronograma=cfg; previsao(); });
+async function prevSugerir(){
+  const mes=PREV_MES, sug=_metaSugerida(mes);
+  const merged=await _mesclarCrono(m=>{ m.plano[mes]=sug; });
+  if(!merged) return;
+  if(await _persistirCrono(merged)) previsao();
 }
-function prevLimpar(){
+async function prevLimpar(){
   if(!confirm("Apagar as metas que você ajustou em "+_compRotulo(PREV_MES)+"?")) return;
-  const cfg=_cronoCfg(); if(cfg.plano) delete cfg.plano[PREV_MES];
-  sb.from("obras").update({cronograma:cfg}).eq("id",OBRA.id).then(()=>{ OBRA.cronograma=cfg; previsao(); });
+  const mes=PREV_MES;
+  const merged=await _mesclarCrono(m=>{ delete m.plano[mes]; });
+  if(!merged) return;
+  if(await _persistirCrono(merged)) previsao();
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
