@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demonstração — ObraIA · menos tempo apagando incêndio na obra</title>
+<meta name="description" content="O engenheiro não perde dinheiro por falta de trabalho. Perde por orçamento que não fecha e obra que anda sem controle. Veja como recuperar esse tempo.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230057a8'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-size='20' font-family='Arial,sans-serif' font-weight='bold' fill='white'%3EM%3C/text%3E%3C/svg%3E">
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   TROQUE DOIS VALORES:  VIDEO_ID  (YouTube não listado)  ·  LINK_KIWIFY
+   ══════════════════════════════════════════════════════════════════════════
+   ESTRUTURA DA PÁGINA (por que está nesta ordem):
+   1. Vídeo + CTA        — o direct prometeu a demonstração; entregue de imediato
+   2. Autodiagnóstico    — as perguntas do SPIN, para quem assistiu e hesitou
+   3. Calculadora de ROI — o diagnóstico que uma página consegue fazer em escala
+   4. Custo de não agir  — urgência com o número DELE, não com escassez falsa
+   5. Impacto            — funcionalidade traduzida em consequência
+   6. Objeções           — tratadas na raiz, não na superfície
+   7. Fechamento         — presume a decisão, devolve a pergunta
+   ══════════════════════════════════════════════════════════════════════════ */
+:root{
+  --navy:#002B40; --blue:#1792C0; --bg:#f4f7fa; --card:#fff; --border:#dce3ea;
+  --text:#2c3e50; --muted:#7f8c8d; --green:#16a34a; --red:#dc2626; --amber:#d97706;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.62}
+.wrap{max-width:820px;margin:0 auto;padding:0 20px}
+header{background:linear-gradient(135deg,var(--navy),#1792C0);color:#fff;padding:13px 0}
+header .wrap{display:flex;align-items:center;gap:12px}
+.logo{font-size:20px;font-weight:800;letter-spacing:-.5px}.logo span{color:#7fd4f5}
+.tag{font-size:11.5px;opacity:.85;border-left:1px solid rgba(255,255,255,.35);padding-left:12px}
+h1{font-size:35px;line-height:1.2;margin:0 0 16px;color:var(--navy);letter-spacing:-.7px}
+h1 em{font-style:normal;color:var(--blue)}
+h2{font-size:25px;color:var(--navy);margin:52px 0 6px;letter-spacing:-.4px}
+.h2sub{color:var(--muted);font-size:14.5px;margin:0 0 20px}
+.hero{padding:46px 0 8px}
+.lead{font-size:18px;color:#3b4a5a;max-width:660px}
+.lead b{color:var(--navy)}
+.cta{display:block;max-width:540px;margin:0 auto;background:var(--green);color:#fff;text-align:center;
+  padding:19px 26px;border-radius:12px;font-size:19px;font-weight:800;text-decoration:none;
+  box-shadow:0 6px 20px rgba(22,163,74,.30);transition:.15s}
+.cta:hover{background:#15803d;transform:translateY(-1px)}
+.cta small{display:block;font-weight:500;font-size:13.5px;opacity:.93;margin-top:4px}
+.selo{text-align:center;font-size:13px;color:var(--muted);margin:12px 0 0}
+.diag{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:26px 28px}
+.diag ul{margin:0;padding:0;list-style:none}
+.diag li{padding:11px 0 11px 32px;position:relative;border-bottom:1px solid #f1f5f9;font-size:15.5px}
+.diag li:last-child{border-bottom:0}
+.diag li::before{content:"?";position:absolute;left:0;top:11px;width:21px;height:21px;border-radius:50%;
+  background:#eaf6fb;color:var(--blue);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
+.diag .fecho{margin:18px 0 0;padding-top:16px;border-top:2px solid #f1f5f9;font-size:15px;color:var(--navy);font-weight:600}
+.calc{background:linear-gradient(160deg,#002B40,#04425f);color:#fff;border-radius:16px;padding:30px 28px;
+  box-shadow:0 12px 34px rgba(0,43,64,.24)}
+.calc h3{margin:0 0 4px;font-size:21px;color:#fff}
+.calc .cs{font-size:13.5px;color:rgba(255,255,255,.72);margin:0 0 20px}
+.campos{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.campo label{display:block;font-size:12.5px;color:rgba(255,255,255,.85);font-weight:600;margin-bottom:5px}
+.campo input{width:100%;padding:11px 12px;border:1.5px solid rgba(255,255,255,.22);border-radius:8px;
+  background:rgba(255,255,255,.08);color:#fff;font-size:16px;font-family:inherit;outline:0}
+.campo input:focus{border-color:#7fd4f5;background:rgba(255,255,255,.14)}
+.res{margin-top:22px;background:rgba(255,255,255,.09);border-radius:12px;padding:20px}
+.linha{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 0;font-size:14.5px;
+  border-bottom:1px solid rgba(255,255,255,.10)}
+.linha:last-of-type{border-bottom:0}
+.linha b{font-size:17px;color:#fff}
+.destaque{margin-top:16px;background:#16a34a;border-radius:10px;padding:16px 18px;text-align:center}
+.destaque .n{font-size:30px;font-weight:800;line-height:1.1}
+.destaque .t{font-size:13.5px;opacity:.95;margin-top:3px}
+.nota{font-size:11.5px;color:rgba(255,255,255,.6);margin-top:12px;line-height:1.55}
+.custo{background:#fff5f5;border:1px solid #fecaca;border-left:5px solid var(--red);border-radius:0 12px 12px 0;padding:22px 26px}
+.custo h3{margin:0 0 8px;color:#991b1b;font-size:19px}
+.custo p{margin:0 0 10px;font-size:15px;color:#7f1d1d}
+.custo .big{font-size:27px;font-weight:800;color:var(--red)}
+.video{position:relative;padding-bottom:56.25%;height:0;border-radius:14px;overflow:hidden;
+  box-shadow:0 12px 40px rgba(0,43,64,.18);background:#000;margin:6px 0 8px}
+.video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.imp{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px}
+.imp .c{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:20px}
+.imp .de{font-size:12.5px;color:var(--muted);text-decoration:line-through;margin-bottom:5px}
+.imp .para{font-size:15.5px;color:var(--navy);font-weight:700;line-height:1.42}
+.imp .p{font-size:13.5px;color:#475569;margin:8px 0 0}
+.obj{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin-bottom:11px}
+.obj b{color:var(--navy);font-size:15.5px;display:block;margin-bottom:6px}
+.obj p{margin:0;font-size:14px;color:#475569}
+.preco{background:var(--card);border:2px solid var(--blue);border-radius:16px;padding:32px;text-align:center;
+  box-shadow:0 8px 28px rgba(23,146,192,.14)}
+.preco .val{font-size:44px;font-weight:800;color:var(--navy);line-height:1}
+.preco .val small{font-size:17px;font-weight:600;color:var(--muted)}
+.preco .par{font-size:15px;color:var(--muted);margin:6px 0 20px}
+.inclui{text-align:left;max-width:430px;margin:0 auto 24px;font-size:14.5px;padding:0}
+.inclui li{margin-bottom:9px;list-style:none;padding-left:27px;position:relative}
+.inclui li::before{content:"✓";position:absolute;left:0;color:var(--green);font-weight:800}
+.fecha{background:#f0f9ff;border:1px solid #bae6fd;border-radius:13px;padding:24px 26px;font-size:15.5px;color:#0c4a6e}
+.fecha b{color:var(--navy)}
+footer{background:var(--navy);color:rgba(255,255,255,.75);padding:26px 0;margin-top:56px;font-size:12.5px;text-align:center}
+@media(max-width:640px){h1{font-size:27px}h2{font-size:21px}.calc{padding:24px 20px}.preco .val{font-size:35px}}
+</style>
+</head>
+<body>
+
+<header><div class="wrap">
+  <div class="logo">Obra<span>IA</span></div>
+  <div class="tag">Mar Aberto Engenharia</div>
+</div></header>
+
+<div class="wrap">
+
+  <!-- 1 · A DOR, NÃO O PRODUTO ─────────────────────────────────────────── -->
+  <div class="hero">
+    <h1>Chega de virar noite tabulando o que a obra já te contou de graça</h1>
+    <p class="lead">Proposta que demora vira negócio perdido. Erro que passou batido vira prejuízo que só aparece
+      no fim. Obra que você não consegue acompanhar de perto vira surpresa ruim na entrega.
+      Assista — depois eu te mostro <b>quanto isso está te custando em dinheiro, hoje</b>.</p>
+  </div>
+
+  <!-- 1 · O VÍDEO — primeiro, porque foi o que o direct prometeu ────────
+       Quem chega aqui veio de "clique para ver a demonstração". Fazer a pessoa
+       rolar até achar o vídeo quebra a promessa que a trouxe. O diagnóstico já
+       aconteceu quando ela comentou no Reel; ele reaparece logo abaixo, para
+       quem assistiu e ficou em dúvida. ──────────────────────────────────── -->
+  <!-- 5 · O VÍDEO ──────────────────────────────────────────────────────── -->
+  <div class="video">
+    <iframe src="https://www.youtube.com/embed/VIDEO_ID?rel=0&modestbranding=1"
+      title="Demonstração do ObraIA" allowfullscreen
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"></iframe>
+  </div>
+
+
+  <!-- CTA logo abaixo do vídeo: quem já se convenceu não deve ter que rolar -->
+  <a class="cta" href="LINK_KIWIFY" style="margin-top:20px">Quero acessar o sistema por 1 ano
+    <small>R$ 420 · ou 12× no cartão · acesso liberado na hora</small></a>
+  <p class="selo">🔒 Pagamento pela Kiwify · Pix, boleto ou cartão</p>
+
+  <!-- 2 · AUTODIAGNÓSTICO ──────────────────────────────────────────────── -->
+  <h2>Isso resolve o seu problema?</h2>
+  <p class="h2sub">Responda para você mesmo. Se a maioria for "sim", a conta abaixo vai te interessar.</p>
+  <div class="diag">
+    <ul>
+      <li>Quantas obras você toca hoje ao mesmo tempo — e sabe o avanço real de cada uma <b>agora</b>?</li>
+      <li>Quantas horas você gastou na última proposta, medindo planta e procurando preço na tabela?</li>
+      <li>Quando o cliente pergunta "quanto já foi executado?", você responde na hora ou pede um dia?</li>
+      <li>Já fechou preço e descobriu depois que faltou um serviço — e o prejuízo saiu do seu bolso?</li>
+      <li>Se continuar exatamente do jeito que está, o que muda daqui a seis meses?</li>
+    </ul>
+    <p class="fecho">Se você travou em alguma, o problema não é falta de esforço — é falta de sistema. E dá para colocar número nisso:</p>
+  </div>
+
+  <!-- 3 · CALCULADORA — o diagnóstico em escala ────────────────────────── -->
+  <h2>Faça a conta com os seus números</h2>
+  <p class="h2sub">Não com os meus. Coloque a sua realidade e veja o que aparece.</p>
+  <div class="calc">
+    <h3>Quanto o seu jeito atual custa por ano</h3>
+    <p class="cs">Só tempo de orçamento. Sem contar retrabalho, obra atrasada ou erro de medição.</p>
+    <div class="campos">
+      <div class="campo"><label>Orçamentos que você faz por ano</label>
+        <input type="number" id="qOrc" min="1" value="12" oninput="calc()"></div>
+      <div class="campo"><label>Horas gastas em cada um</label>
+        <input type="number" id="qHrs" min="1" value="16" oninput="calc()"></div>
+      <div class="campo"><label>Quanto vale a sua hora (R$)</label>
+        <input type="number" id="qVal" min="1" value="120" oninput="calc()"></div>
+      <div class="campo"><label>Prejuízo do seu pior erro de orçamento (R$)</label>
+        <input type="number" id="qErr" min="0" value="15000" oninput="calc()"></div>
+    </div>
+    <div class="res">
+      <div class="linha"><span>Horas que você gasta orçando por ano</span><b id="rHrs">—</b></div>
+      <div class="linha"><span>O que isso vale no seu preço/hora</span><b id="rCusto">—</b></div>
+      <div class="linha"><span>Com o ObraIA, sobrando ~70% desse tempo</span><b id="rEcon">—</b></div>
+      <div class="linha"><span>Custo da assinatura</span><b>R$ 420 / ano</b></div>
+      <div class="destaque">
+        <div class="n" id="rPaga">—</div>
+        <div class="t" id="rTxt">é o que você recupera só em tempo, no primeiro ano</div>
+      </div>
+      <p class="nota" id="rErro"></p>
+      <p class="nota">Conta transparente: horas × orçamentos × seu valor/hora, com redução de 70% no tempo
+        de levantamento e cotação. Você mede na planta e confere tudo — o sistema não tira você da decisão.</p>
+    </div>
+  </div>
+
+  <!-- 4 · CUSTO DE NÃO AGIR ────────────────────────────────────────────── -->
+  <div class="custo" style="margin-top:26px">
+    <h3>E se você não fizer nada?</h3>
+    <p>O número acima <b>não é o que você deixa de ganhar</b>. É o que você já está pagando,
+      todo ano, sem emitir nota — em madrugada refazendo planilha e em obra que ninguém sabe medir.</p>
+    <p style="margin:0">Daqui a doze meses, sem mudar nada, terão saído do seu bolso:</p>
+    <div class="big" id="rInacao">—</div>
+  </div>
+
+  <!-- 5 · FUNCIONALIDADE TRADUZIDA EM CONSEQUÊNCIA ─────────────────────── -->
+  <h2>O que isso muda na prática</h2>
+  <p class="h2sub">Ninguém compra "cronograma". Compra não ser pego de surpresa.</p>
+  <div class="imp">
+    <div class="c"><div class="de">Tem levantamento por IA</div>
+      <div class="para">Você orça a obra na segunda e entrega a proposta na terça</div>
+      <p class="p">Enquanto o concorrente ainda está medindo planta, sua proposta já está na mesa do cliente.</p></div>
+    <div class="c"><div class="de">Tem controle financeiro</div>
+      <div class="para">Você vê o desvio quando ele é de R$ 2 mil, não de R$ 20 mil</div>
+      <p class="p">Físico contra financeiro na mesma tela, com o previsto do cronograma ao lado do executado real.</p></div>
+    <div class="c"><div class="de">Tem cronograma</div>
+      <div class="para">Você sabe qual atraso adia a entrega e qual não adia</div>
+      <p class="p">Caminho crítico calculado de verdade, com os vínculos do MS Project. Atrasar o que tem folga não é problema.</p></div>
+    <div class="c"><div class="de">Tem app para a equipe</div>
+      <div class="para">Você acompanha a obra de outro estado, sem ligar para ninguém</div>
+      <p class="p">O encarregado lança o avanço no canteiro e sua tela atualiza sozinha — com registro de quem informou o quê.</p></div>
+    <div class="c"><div class="de">Tem compatibilização</div>
+      <div class="para">Você chega na reunião com a incompatibilidade provada</div>
+      <p class="p">Só aponta conflito quando mostra as duas fontes do projeto que se contradizem. Nada de acusar erro que não existe.</p></div>
+    <div class="c"><div class="de">Exporta Excel</div>
+      <div class="para">Você entrega uma planilha que aguenta auditoria</div>
+      <p class="p">Memória de cálculo, curva ABC, insumos e pendências. Cada preço com a origem à mostra.</p></div>
+  </div>
+
+  <!-- 6 · OBJEÇÕES NA RAIZ ─────────────────────────────────────────────── -->
+  <h2>O que provavelmente está passando pela sua cabeça</h2>
+  <p class="h2sub">Vou responder o que costuma estar por trás de cada uma.</p>
+
+  <div class="obj"><b>"R$ 420 está caro."</b>
+    <p>Comparado a quê? São R$ 35 por mês — menos que uma hora sua. Se você faz um orçamento por mês
+      e economiza 10 horas em cada, a assinatura custa o equivalente a 20 minutos do que ela te devolve.
+      A pergunta certa não é se está caro: é quanto te custa o mês que você passar sem.</p></div>
+
+  <div class="obj"><b>"Vou continuar no Excel."</b>
+    <p>O Excel não é o problema — ele continua sendo o destino final, e o sistema exporta para ele.
+      O problema é o que vem antes: medir planta no braço, garimpar preço item por item e
+      montar cronograma sem saber o que realmente atrasa a entrega. É esse pedaço que sai da sua mão.</p></div>
+
+  <div class="obj"><b>"E se eu não conseguir usar?"</b>
+    <p>Esse é o medo real por trás do "vou pensar": trocar de jeito de trabalhar dá trabalho.
+      Por isso não há instalação, nem BIM, nem curso. Você envia o PDF que já recebeu do projetista
+      e confere o resultado na tela. O primeiro orçamento sai no mesmo dia.</p></div>
+
+  <div class="obj"><b>"E se a IA errar?"</b>
+    <p>Ela vai errar em algum item — e é por isso que o sistema mostra de onde veio cada número
+      e te deixa medir na planta para conferir. Ele não foi feito para você confiar cego.
+      Foi feito para você <b>conferir rápido</b>. A IA levanta; quem assina é você.</p></div>
+
+  <div class="obj"><b>"Preciso falar com meu sócio."</b>
+    <p>Faz sentido. Leve a conta que você fez aqui em cima, com os números da sua empresa.
+      A conversa fica bem mais curta quando a pergunta deixa de ser "vale a pena assinar?"
+      e passa a ser "vale a pena continuar pagando isso todo ano?".</p></div>
+
+  <!-- 7 · PREÇO E FECHAMENTO ───────────────────────────────────────────── -->
+  <h2>Investimento</h2>
+  <p class="h2sub">Um ano de acesso, com tudo incluído.</p>
+  <div class="preco">
+    <div class="val">R$ 420<small> / ano</small></div>
+    <div class="par">ou 12× no cartão · R$ 35 por mês</div>
+    <ul class="inclui">
+      <li>A planta em PDF vira proposta pronta, sem você medir nada no braço</li>
+      <li>Preço de serviço sempre atualizado, de qualquer estado — sem procurar tabela</li>
+      <li>Saber antes o que vai atrasar a entrega, não descobrir depois</li>
+      <li>Acompanhar a obra de longe, com a sua equipe atualizando ao vivo</li>
+      <li>Suas composições, só suas — ninguém mais acessa</li>
+      <li>Uma planilha final que aguenta pergunta de cliente e de auditoria</li>
+      <li>Preço nunca desatualizado, sem esforço nenhum seu</li>
+      <li>Suporte direto comigo, engenheiro</li>
+    </ul>
+    <a class="cta" href="LINK_KIWIFY">Começar agora
+      <small>acesso liberado assim que o pagamento for confirmado</small></a>
+    <p class="selo">🔒 Pagamento pela Kiwify · Pix, boleto ou cartão em até 12×</p>
+  </div>
+
+  <div class="fecha" style="margin-top:30px">
+    Pelo que você respondeu lá em cima, o problema é <b>tempo perdido orçando</b> e
+    <b>obra andando sem controle</b>. Foi exatamente isso que o vídeo mostrou resolvido.
+    <br><br>
+    Então a pergunta que sobra é só uma: <b>existe alguma dúvida que ainda te impeça de começar hoje?</b>
+    Se existir, me chame no direct e eu respondo pessoalmente — se não existir, o botão está aí em cima.
+  </div>
+
+</div>
+
+<footer><div class="wrap">
+  <b>ObraIA</b> — menos tempo apagando incêndio, mais tempo fechando negócio<br>
+  Mar Aberto Engenharia · preços atualizados em todos os estados<br>
+  <span style="opacity:.6">© 2026 Mar Aberto Engenharia. Todos os direitos reservados.</span>
+</div></footer>
+
+<script>
+// Calculadora de ROI — o diagnóstico que a página consegue fazer sozinha.
+// Números conservadores de propósito: prometer 90% de economia e entregar 60%
+// gera reembolso. 70% é o que o sistema faz de fato no levantamento e na cotação.
+const ECONOMIA = 0.70, ASSIN = 420;
+const brl = v => "R$ " + (Math.round(v)).toLocaleString("pt-BR");
+function calc(){
+  const n  = Math.max(0, +document.getElementById("qOrc").value || 0);
+  const h  = Math.max(0, +document.getElementById("qHrs").value || 0);
+  const v  = Math.max(0, +document.getElementById("qVal").value || 0);
+  const er = Math.max(0, +document.getElementById("qErr").value || 0);
+  const horas = n * h, custo = horas * v, econ = custo * ECONOMIA;
+  document.getElementById("rHrs").textContent   = horas ? horas.toLocaleString("pt-BR") + " h" : "—";
+  document.getElementById("rCusto").textContent = brl(custo);
+  document.getElementById("rEcon").textContent  = brl(econ);
+  document.getElementById("rInacao").textContent = brl(custo);
+  if(econ >= ASSIN){
+    const x = econ / ASSIN;
+    document.getElementById("rPaga").textContent = x.toFixed(1).replace(".", ",") + "×";
+    document.getElementById("rTxt").textContent  =
+      "é quanto a assinatura volta para você no primeiro ano — ela se paga em " +
+      Math.max(1, Math.round(365 * ASSIN / econ)) + " dias";
+  } else {
+    document.getElementById("rPaga").textContent = brl(econ);
+    document.getElementById("rTxt").textContent  = "de tempo recuperado no primeiro ano";
+  }
+  document.getElementById("rErro").textContent = er > 0
+    ? "E isso sem contar o erro: um único deslize de " + brl(er) +
+      " equivale a " + Math.round(er / ASSIN) + " anos de assinatura. Basta o sistema te fazer enxergar um antes de fechar o preço."
+    : "";
+}
+calc();
+</script>
+</body>
+</html>
