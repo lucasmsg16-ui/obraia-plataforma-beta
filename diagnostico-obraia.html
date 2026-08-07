@@ -155,12 +155,15 @@ h1 .dano{color:var(--red);font-style:normal}
   display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;font-size:15px;line-height:1}
 .garantia .s7 small{font-size:8px;font-weight:800}
 .garantia p{font-size:13px;color:#c9f7d9}
+/* assinatura discreta: a marca que vende é ObraIA; a casa que assina fica no pé */
+.assina{text-align:center;font-size:11px;color:#4a6180;margin-top:34px;letter-spacing:.3px}
+.assina b{color:var(--muted);font-weight:600}
 </style>
 </head>
 <body>
 <div class="stage" id="palco">
 
-<div class="brand"><span class="dot"></span><span>ObraIA · Mar Aberto Engenharia</span></div>
+<div class="brand"><span class="dot"></span><span>ObraIA</span></div>
 
 <!-- ═══ 1 · ABERTURA ═══════════════════════════════════════════════════ -->
 <section class="screen on" id="s-inicio">
@@ -187,6 +190,7 @@ h1 .dano{color:var(--red);font-style:normal}
 <!-- ═══ 3 · RESULTADO ══════════════════════════════════════════════════ -->
 <section class="screen" id="s-result"></section>
 
+<div class="assina">desenvolvido por <b>Mar Aberto Engenharia</b></div>
 </div>
 
 <script>
@@ -565,7 +569,7 @@ function resultado(){
 
     <div style="max-width:420px;margin:26px auto 0">
       <p style="text-align:center;font-size:13.5px;color:var(--muted);margin-bottom:12px">
-        Quer receber este resultado por e-mail para pensar com calma?</p>
+        Receber diagnóstico por e-mail</p>
       <div class="campo"><label>Seu nome</label><input id="f-nome" placeholder="Como devo te chamar"></div>
       <div class="campo"><label>Seu melhor e-mail</label><input id="f-email" type="email" placeholder="voce@email.com"></div>
       <div class="campo"><label>WhatsApp <span style="color:var(--muted);font-weight:400">(opcional)</span></label><input id="f-zap" placeholder="(00) 00000-0000"></div>
@@ -573,8 +577,7 @@ function resultado(){
       <div id="leadMsg" style="text-align:center;font-size:13px;margin-top:10px;color:var(--green)"></div>
     </div>
 
-    <p class="rodape">ObraIA · Mar Aberto Engenharia<br>
-      Cálculo feito com as suas respostas, redução de 70% no tempo de levantamento e cotação.
+    <p class="rodape">Cálculo feito com as suas respostas, redução de 70% no tempo de levantamento e cotação.
       O sistema não substitui a sua decisão técnica — a assinatura continua sendo sua.</p>`;
   show('s-result');
   window._diag = { trilha, dados, respostas: respostas.join(""), custoAno: Math.round(c.custoAno), total: Math.round(R) };
